@@ -8,7 +8,7 @@
 
 <br>
 
-## Template
+## Template 옵션
 * Pod에 장애가 생겨 Controller가 해당 파드를 재생성할때 사용하는 Pod의 Template임
 * Pod와 template매칭은 Service 오브젝트처럼 Label과 Selector로 매칭할 수 있다.
 * template의 버전을 업그레이드 하고 싶으면?
@@ -20,15 +20,16 @@
 
 <br>
 
-## Replicas
+## Replicas 옵션
 * Controller가 Replicas에 설정된 수 만큼 Pod 개수를 유지
 * Replicas개수 줄이면 Scale-in, 늘리면 Scale-out이라고 함
-* Auto Scaling 적용하거나 대시보드에서 직접 Replicas 늘리면 됨
-* ![](2024-11-06-00-30-03.png)
+  * Auto Scaling 적용하거나 직접 Replicas 늘리면 됨
+  * 대시보드에서도 Replicas 조절 가능
+  * ![](2024-11-06-00-30-03.png)
 
 <br>
 
-## Selector
+## Selector 옵션
 * Replication Controller의 경우 Label의 key & value 가 모두 같은 Pod들만 연결이 가능
 * **RelicaSet**의 경우 Label의 key 또는 value를 선택적으로 매칭 가능하다.
   * `matchLabels`와 `matchExpressions` 옵션을 사용
@@ -48,8 +49,15 @@
 ## Replication Controller과 ReplicaSet 차이점
 * Replication Controller가 업그레이드된? Controller가 ReplicaSet이다.
 * 따라서 ReplicaSet은 Replication Controller의 주요 기능 모두를 가지고 있다.
-* ReplicaSet은 집합 기반의 셀렉터를 지원한다. (Selector옵션 - `matchLabels`,`matchExpressions`)
-* ReplicaSet은 Deployment Controller를 통하여 rolling-update를 지원
+* Selector 유연성
+  * Replication Controller는 일치성 기반(Equality-based)의 셀렉터를 지원한다.
+  * ReplicaSet은 집합 기반(Set-based)의 셀렉터를 지원한다.
+    * Set-based의 셀렉터 - `matchExpressions` 옵션
+      * operator - `Exists`, `DoesNotExist`, `In`, `NotIn`
+* Deployment는 ReplicaSet을 사용하여 Pod를 관리한다. (Replication Controller가 대체할 수 없음)
+  * RollingUpdate 배포 방식을 지원한다.
+    * `type: RollingUpdate`로 Deployment를 생성
+  * Update이후 기록된 revision ReplicaSet을 이용하여 Rollback이 가능하다.
 
 <br>
 

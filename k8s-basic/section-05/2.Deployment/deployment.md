@@ -4,6 +4,7 @@
   2. Rolling update
   3. Blue/Green
   4. Canary
+  * ![](2024-11-06-19-35-00.png)
 * Blue/Green과 Canary 배포 방식은 k8s에서 정식으로 제공하는 방식은 아니지만
   * ReplicaSet을 이용하여 구현할 수 있다.
 
@@ -50,7 +51,7 @@
    * downtime 발생함
 4. Pod v2의 template이 적용된 새로운 ReplicaSet2이 생성되고
 5. ReplicaSet2 replicas만큼 새로운 Pod(v2)들이 생성됨
-6. Pod들이 Service 연결됨
+6. Pod들이 Service와 연결됨
 7. 기존의 ReplicaSet은 default로 10개까지 삭제되지 않고 유지됨 (rollback 가능)
    * `revisionHistoryLimit: {유지개수}` 옵션을 사용하면 설정 가능함
 * ![](2024-11-05-01-18-23.png)
