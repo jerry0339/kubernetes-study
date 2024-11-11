@@ -37,19 +37,26 @@
 * `nodeSelector: {key:value}` 옵션으로 해당하는 레이블이 없는 노드에는 생성되지 않도록 할 수도 있음
 * `hostport: {portNum}` 옵션으로 Service의 NodePort 사용하듯이 정해진 port로 해당하는 node의 Pod에 바로 접근 가능
   * 아래 그림 설명 참고
+* DaemonSet도 다른 컨트롤러와 마찬가지로 삭제하면 연결된 Pod들도 같이 삭제된다.
 
 <br>
 
 ## Job
 * template에는 특정 작업만 수행하고 종료될 Pod의 정보가 담김
 * Selector는 Job이 알아서 만들어 줌
+* Job삭제시 연결된 Pod들 모두 삭제됨
+* Job의 Pod는 `Running` 상태로 작업을 수행하고, 끝나면 `completed`로 변경됨
+* ![](2024-11-12-00-16-02.png)
 * `completions: {num}` 옵션으로 작업을 수행할 Pod의 총 개수를 설정할 수 있다.
   * 생성된 모든 Pod가 종료되어야 Job도 종료됨
   * `completions`옵션의 개수만큼 총 Pod가 생성되는데, `parallelism`옵션으로 한번에 생성되는 Pod개수를 조절 가능
   * `activeDeadlineSeconds: {sec}` 옵션으로 지정한 초만큼의 시간이 지나면 Job이 종료되도록 설정 가능
     * 오작동 및 장애가 생길 경우를 예방하기 위해 사용됨
-    * 실행되고 있는 모든 Pod들은 삭제됨
-    * 실행되지 못한 Pod들은 실행안됨 (todo: 실행안된 Pod들도 삭제될까??)
+    * 실행되고 있는 모든 Pod들은 작업 중지, 삭제됨
+    * 실행되지 못한 Pod(남은 job-pod)들은 생성되지 않고 Job이 종료됨
+    * 이미 완료된 job-pod들은 `completed`상태로 남아 있음
+    * ![](2024-11-12-00-23-06.png)
+
 
 <br>
 
@@ -62,6 +69,14 @@
   * Cron식이 `*/1 * * * *`(1분 마다) 일때,
     * Allow - 1분마다 독립적으로 작업을 수행하는 Job생성
     * todo: https://kubernetes.io/ko/docs/concepts/workloads/controllers/cron-jobs/
+* 대시보드의 CronJob 탭에서 트리커를 통해 Cron식에 의해 생성되는 Job이외에 직접 Job을 생성할 수 있음
+* ![](2024-11-12-00-37-33.png)
+* CronJob의 트리거를 통해 직접 Job을 생성한 경우 아래와 같이 Job과 Pod의 이름에 manual이라는 단어가 붙음
+* ![](2024-11-12-00-38-17.png)
+* kubectl로도 Job 트리거 생성이 가능함
+  * ex. `kubectl create job --from=cronjob/{cronjob이름} {생성할job이름}`
+* suspend값을 true로 설정하면, CronJob을 일시중지 시킬 수 있음
+* ![](2024-11-12-02-29-59.png)
 
 <br>
 
