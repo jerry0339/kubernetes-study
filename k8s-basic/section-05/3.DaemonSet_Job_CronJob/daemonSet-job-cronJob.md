@@ -57,18 +57,12 @@
     * 이미 완료된 job-pod들은 `completed`상태로 남아 있음
     * ![](2024-11-12-00-23-06.png)
 
-
 <br>
 
 ## CronJob
 * jobTemplate 옵션으로 잡을 생성
 * schedule 옵션에 Cron식을 작성
   * [Cron expression test](https://crontab.cronhub.io/)
-* `concurencyPolicy` 옵션
-  * Allow가 default 설정
-  * Cron식이 `*/1 * * * *`(1분 마다) 일때,
-    * Allow - 1분마다 독립적으로 작업을 수행하는 Job생성
-    * todo: https://kubernetes.io/ko/docs/concepts/workloads/controllers/cron-jobs/
 * 대시보드의 CronJob 탭에서 트리커를 통해 Cron식에 의해 생성되는 Job이외에 직접 Job을 생성할 수 있음
 * ![](2024-11-12-00-37-33.png)
 * CronJob의 트리거를 통해 직접 Job을 생성한 경우 아래와 같이 Job과 Pod의 이름에 manual이라는 단어가 붙음
@@ -77,6 +71,17 @@
   * ex. `kubectl create job --from=cronjob/{cronjob이름} {생성할job이름}`
 * suspend값을 true로 설정하면, CronJob을 일시중지 시킬 수 있음
 * ![](2024-11-12-02-29-59.png)
+
+### CronJob의 ConcurrencyPolicy
+* ConcurrencyPolicy은 CronJob에 의해 생성된 Job들의 동시 실행을 처리하는 방법을 지정
+* `Allow`가 default 설정
+* `Allow`, `Forbid`, `Replace` 3가지가 있음
+* Cron식이 `*/1 * * * *`(1분 마다) 라고 가정할때,
+  * `Allow` - 1분마다 Job의 여러 pod들을 병렬로 실행
+  * `Forbid` - n분에 이전에 생성된 Job이 여전히 실행 중이라면, n분의 Job의 실행을 스킵
+  * `Replace` - 만약 현재 Job이 여전히 실행중이라면, Job과 연결된 Pod 실행을 중지시키고 새로 생성
+* ![](2024-11-12-02-38-08.png)
+
 
 <br>
 

@@ -58,21 +58,22 @@
      ~~~
 8. Pod에서 환경 변수 설정으로 ConfigMap을 컨테이너로 가져왔을때와 mount로 가져올때의 차이점은?
 9. OX: Namespace를 삭제하면 그 안의 오브젝트들(service, pod등)은 모두 삭제된다.
-   * O
+   * O: 모두 삭제됨
 10. ResourceQuota를 설정한 Namespace에 Spec설정(Compute Resource, Object Count)을 하지 않은 Pod를 생성할 수 있을까 ?
-   * O: Namespace에 default 설정을 해주면 가능, 없으면 안됨
+    * O: Namespace에 default 설정을 해주면 가능, 없으면 안됨
 11. namespace에 resource quota 를 적용했을 때 어떤 동작에 제한이 있고, namespace에 limit range를 적용했을 때 어떤 동작에 제한이 있음?
-   * Namespace에 Resource Quota 를 설정해 한 Namespace 내 할당할 수 있는 자원의 양을 정할 수 있다
-   * Namespace에 LimitRange를 설정해 해당 namespace에 할당될 수 있는 한 pod의 최대 자원량을 정할 수 있다
+    * Namespace에 Resource Quota 를 설정해 한 Namespace 내 할당할 수 있는 자원의 양을 정할 수 있다
+    * Namespace에 LimitRange를 설정해 해당 namespace에 할당될 수 있는 한 pod의 최대 자원량을 정할 수 있다
 12. OX: Namespace로 NodePort Service를 구분할 수 있다 (같은 port의 NodePort Service를 Namespace별로 만들 수 있다)
-   * X: Namespace와는 별개로 Cluster내에 같은 port를 사용하는 NodePort Service는 생성할 수 없음
+    * X: Namespace와는 별개로 Cluster내에 같은 port를 사용하는 NodePort Service는 생성할 수 없음
 13. Replication Controller과 ReplicaSet 차이점?
-   * [replicaSet문서의 Replication Controller과 ReplicaSet 차이점 참고](/kubernetes-study/k8s-basic/section-05/1.ReplicaSet/replicaSet.md)
+    * [replicaSet문서의 Replication Controller과 ReplicaSet 차이점 참고](/kubernetes-study/k8s-basic/section-05/1.ReplicaSet/replicaSet.md)
 14. OX: Blue/Green 배포 방식에 Deployment 워크로드는 필요없다.
-   * O: 새로운 template이 담긴 ReplicaSet을 추가하고 Service의 Label만 바꿔주면 된다.
+    * O: 새로운 template이 담긴 ReplicaSet을 추가하고 Service의 Label만 바꿔주면 된다.
 15. OX: Deployment Controller의 image를 변경하면 항상 새로운 ReplicaSet이 생성된다.
-   * X: Revision History에 image가 같은 Revision ReplicaSet이 있다면, Deployment는 해당 ReplicaSet과 연결된다.
+    * X: Revision History에 image가 같은 Revision ReplicaSet이 있다면, Deployment는 해당 ReplicaSet과 연결된다.
 16. OX: Deployment Controller를 삭제하면 해당 Deployment와 연결된 모든 ReplicaSet, Pod, Service가 삭제된다.
-   * X: 워크로드들만 삭제된다. (Pod, ReplicaSet, Job 등)
+    * X: 워크로드들만 삭제된다. (Pod, ReplicaSet, Job 등)
 17. Rolling Update시 새로운 ReplicaSet이 생성될때 기존의 Pod와 연결되지 않는 이유?
-   * [deployment문서 참고](/kubernetes-study/k8s-basic/section-05/2.Deployment/deployment.md)
+    * [deployment문서 참고](/kubernetes-study/k8s-basic/section-05/2.Deployment/deployment.md)
+18. 
