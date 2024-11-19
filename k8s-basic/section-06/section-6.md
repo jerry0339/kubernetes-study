@@ -1,9 +1,9 @@
 # Section 6
-* Pod 중급편
-* Pod의 Lifecycle에 대해
+* Pod의 Life Cycle에 대해 설명
+* ![](2024-11-19-01-45-57.png)
 
 ## Pod의 `Status`
-* `Phase` 5가지 - Pod의 전체 상태를 대표하는 속성
+* `Phase` 5가지 - Pod의 메인 상태를 나타냄
   * Pending
   * Running
   * Succeeded
@@ -13,7 +13,7 @@
   * Initialized
   * ContainerReady
   * PodScheduled
-  * Read
+  * Ready
   * `Conditions의 Reason` 2가지 - Conditions의 세부 내용
     * ContainerNotReady
     * PodCompleted
@@ -32,5 +32,6 @@
     * Completed
     * cf. 아래의 이미지에서 상태가 waiting인 이유로 ContainerCreating이 표기됨
 
-## 이미지 설명
+## Pod & Container 상태 이미지 설명
 * ![](2024-11-18-23-39-42.png)
+
