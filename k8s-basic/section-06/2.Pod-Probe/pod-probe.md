@@ -1,4 +1,5 @@
 # Pod - Probe
+> - 설명 참고용 이미지 <br> ![](2024-11-21-00-07-54.png)
 * Probe는 컨테이너에서 kubelet에 의해 주기적으로 수행되는 진단
 * kubelet은 컨테이너의 상태를 진단하기 위해 Handler를 호출
 * Probe를 통해 컨테이너의 상태를 주기적으로 체크
@@ -13,7 +14,8 @@
   * 컨테이너가 요청을 처리할 준비가 되었는지 여부를 나타냄
   * Pod가 Running 상태여도 처음에 App이 로딩하는 시간이 있기 때문에 이 시간 동안은 App에 요청하려고 하면 오류가 발생
   * Readiness probe는 App이 구동되기 전까지 Service와 연결되지 않게 해줌
-  * Probe가 실패하면 엔드포인트 컨트롤러는 파드에 연관된 모든 서비스들의 엔드포인트에서 파드의 IP주소를 제거함
+  * Probe가 실패하면 엔드포인트 컨트롤러는 파드에 연관된 모든 서비스들의 엔드포인트(서비스와 연결된 Pod) 목록에서 해당 파드의 IP를 제거함
+  * App 구동 순간에 트래픽 실패를 없애줌
 * Liveness probe
   * 컨테이너가 동작 중인지 여부를 나타냄
   * Pod은 정상적인 Running 상태이지만, 컨테이너의 App에 장애가 생겨서 응답이 안되는 경우를 감지함
@@ -31,15 +33,16 @@
 
 <br>
 
-## Liveness probe vs Readiness probe
-* Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만
-* Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외 (todo:검증)
+## Probe fail일때 Liveness probe vs Readiness probe
+* Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만,
+* Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외
+  * 서비스들의 엔드포인트 목록에서 해당 Pod의 IP가 제거됨
 
 <br>
 
 ### Probe의 Handler
 * 컨테이너의 상태를 진단하기 위해 어떻게 진단할 것인지 명시한 것이 Handler
-* Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 포함해야 함
+* Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
 * `Exec`
   * Command
 * `TcpSocket`
@@ -47,7 +50,7 @@
   * Host
 * `HttpGet`
   * Port
-  * Host
+  * Host 
   * Path
   * HttpHeader
   * Scheme
@@ -60,3 +63,6 @@
 * timeoutSeconds
 * successThreshold
 * failureThreshold
+
+## ReadinessProbe와 LivenessProbe의 동작 그림 설명
+* ![](2024-11-21-00-05-24.png)
