@@ -16,6 +16,4 @@
 * [왜 Kubernetes 인가? How가 아닌 Why로 접근하는 Kubernetes 이야기](https://medium.com/naverfinancial/%EC%99%9C-kubernetes-%EC%9D%B8%EA%B0%80-how%EA%B0%80-%EC%95%84%EB%8B%8C-why%EB%A1%9C-%EC%A0%91%EA%B7%BC%ED%95%98%EB%8A%94-kubernetes-%EC%9D%B4%EC%95%BC%EA%B8%B0-a303aa513a8d)
 * [흔들리는 도커의 위상](https://www.samsungsds.com/kr/insights/docker.html?referrer=https://www.google.com/) 
   * Docker & CRI(Container Runtime Interface) 관련...
-
-
-
+* [클라우드 네이티브](https://library.gabia.com/contents/infrahosting/12091/) 아키텍처란 ?

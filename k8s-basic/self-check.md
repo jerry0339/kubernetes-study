@@ -76,4 +76,8 @@
     * X: 워크로드들만 삭제된다. (Pod, ReplicaSet, Job 등)
 17. Rolling Update시 새로운 ReplicaSet이 생성될때 기존의 Pod와 연결되지 않는 이유?
     * [deployment문서 참고](/kubernetes-study/k8s-basic/section-05/2.Deployment/deployment.md)
-18. 
+
+18. Readiness probe와 Liveness probe가 실패시 동작 차이점
+    * Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만,
+    * Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외
+      * 서비스들의 엔드포인트 목록에서 해당 Pod의 IP가 제거됨

@@ -33,14 +33,14 @@
 
 <br>
 
-## Probe fail일때 Liveness probe vs Readiness probe
+### Probe fail일때 Liveness probe vs Readiness probe
 * Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만,
 * Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외
   * 서비스들의 엔드포인트 목록에서 해당 Pod의 IP가 제거됨
 
 <br>
 
-### Probe의 Handler
+## Probe의 Handler
 * 컨테이너의 상태를 진단하기 위해 어떻게 진단할 것인지 명시한 것이 Handler
 * Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
 * `Exec`
@@ -63,6 +63,8 @@
 * timeoutSeconds
 * successThreshold
 * failureThreshold
+
+<br><br>
 
 ## ReadinessProbe와 LivenessProbe의 동작 그림 설명
 * ![](2024-11-21-00-05-24.png)
