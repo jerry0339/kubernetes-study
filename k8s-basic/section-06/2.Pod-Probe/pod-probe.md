@@ -47,22 +47,22 @@
 
 ## Probe의 Handler
 * 컨테이너의 상태를 진단하기 위해 어떻게 진단할 것인지 명시한 것이 Handler
-* Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
+* Pod의 spec에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
   * `Exec`
-    * Command
+    * Command - 실행할 명령어 배열
   * `TcpSocket`
-    * Port
-    * Host
+    * Port - 포트 번호
+    * Host - 호스트명 (선택 사항)
   * `HttpGet`
-    * Port
-    * Host 
-    * Path
-    * HttpHeader
-    * Scheme
+    * Port - 포트 번호
+    * Host - 호스트명 (선택 사항)
+    * Path - HTTP 요청 경로
+    * HttpHeader - 추가 HTTP 헤더 목록 (선택 사항)
+    * Scheme - HTTP 또는 HTTPS 중 선택
 
 <br>
 
-### ReadinessProbe와 LivenessProbe의 Handler의 옵션
+### Probe Handler의 공통 옵션
 * initialDelaySeconds
   * 첫 Probe 실행 전 대기 시간
   * default - 0초
@@ -70,16 +70,57 @@
   * Probe 실행 주기
   * default - 10초
 * timeoutSeconds
-  * Probe가 응답을 기다리는 최대 시간
+  * Probe 응답 대기 시간
   * default - 1초
-* failureThreshold
-  * 실패 상태로 간주되기 전 실패해야 하는 횟수
-  * default - 3회
-* successThreshold - 성공으로 판단하기까지 필요한 성공 응답 횟수
-  * Readiness 상태로 간주되기 전 성공해야 하는 횟수
+* successThreshold
+  * 성공으로 간주되기 전 연속 성공 횟수
   * default - 1회
+  * Readiness Probe에서 설정 가능
+    * Liveness와 Startup Probe에서는 항상 1로 고정
+* failureThreshold
+  * 실패로 간주되기 전 연속 실패 횟수
+  * default - 3회
 
-* Startup Probe가 정의된 경우, 컨테이너 초기화 단계에서 Liveness Probe는 비활성화
+<br>
+
+### Probe 별 옵션 지원 여부
+* **successThreshold**는 Readiness Probe에서만 유의미하게 작동하며, Liveness와 Startup Probe에서는 항상 1로 고정
+* **Startup Probe**가 정의된 경우, 해당 Probe가 성공할 때까지 **Liveness Probe**는 비활성화
+* **terminationGracePeriodSeconds**는 PodSpec에서 설정하는 옵션으로, Probe 자체의 구성 옵션은 아님
+  * Graceful shutdown을 위한 옵션으로 컨테이너가 종료되기 전에 대기해야 하는 시간을 지정
+  * default:30
+  * `K8s 1.25` 버전부터는 Liveness Probe에 대해 개별적인 terminationGracePeriodSeconds를 설정할 수 있음
+  * ```yaml
+    spec:
+      terminationGracePeriodSeconds: 3600  # pod-level
+      containers:
+      - name: test
+        image: ...
+
+        ports:
+        - name: liveness-port
+          containerPort: 8080
+
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: liveness-port
+          failureThreshold: 1
+          periodSeconds: 60
+          # Override pod-level terminationGracePeriodSeconds #
+          terminationGracePeriodSeconds: 60
+    ```
+
+|         옵션 / Probe          | Readiness Probe | Liveness Probe | Startup Probe |
+| :---------------------------: | :-------------: | :------------: | :-----------: |
+|      initialDelaySeconds      |        ✅        |       ✅        |       ✅       |
+|         periodSeconds         |        ✅        |       ✅        |       ✅       |
+|        timeoutSeconds         |        ✅        |       ✅        |       ✅       |
+|       successThreshold        |        ✅        |       ❌        |       ❌       |
+|       failureThreshold        |        ✅        |       ✅        |       ✅       |
+| terminationGracePeriodSeconds |        ❌        |       ✅        |       ❌       |
+
+<br>
 
 ### Handler 그림 설명
 * ![](2024-11-21-00-07-54.png)
