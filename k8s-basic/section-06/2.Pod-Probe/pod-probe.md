@@ -1,5 +1,4 @@
 # Pod - Probe
-> - 설명 참고용 이미지 <br> ![](2024-11-21-00-07-54.png)
 * Probe는 컨테이너에서 kubelet에 의해 주기적으로 수행되는 진단
 * kubelet은 컨테이너의 상태를 진단하기 위해 Handler를 호출
 * Probe를 통해 컨테이너의 상태를 주기적으로 체크
@@ -40,31 +39,48 @@
 
 <br>
 
-## Probe의 Handler
-* 컨테이너의 상태를 진단하기 위해 어떻게 진단할 것인지 명시한 것이 Handler
-* Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
-* `Exec`
-  * Command
-* `TcpSocket`
-  * Port
-  * Host
-* `HttpGet`
-  * Port
-  * Host 
-  * Path
-  * HttpHeader
-  * Scheme
+### ReadinessProbe와 LivenessProbe의 동작 그림 설명
+* ![](2024-11-21-00-05-24.png)
 
-<br>
-
-### Probe Handler의 공통 옵션
-* initialDelaySeconds
-* periodSeconds
-* timeoutSeconds
-* successThreshold
-* failureThreshold
 
 <br><br>
 
-## ReadinessProbe와 LivenessProbe의 동작 그림 설명
-* ![](2024-11-21-00-05-24.png)
+## Probe의 Handler
+* 컨테이너의 상태를 진단하기 위해 어떻게 진단할 것인지 명시한 것이 Handler
+* Pod의 yaml파일에 Probe추가시, 아래의 3가지 Handler중 하나를 반드시 포함해야 함
+  * `Exec`
+    * Command
+  * `TcpSocket`
+    * Port
+    * Host
+  * `HttpGet`
+    * Port
+    * Host 
+    * Path
+    * HttpHeader
+    * Scheme
+
+<br>
+
+### ReadinessProbe와 LivenessProbe의 Handler의 옵션
+* initialDelaySeconds
+  * 첫 Probe 실행 전 대기 시간
+  * default - 0초
+* periodSeconds
+  * Probe 실행 주기
+  * default - 10초
+* timeoutSeconds
+  * Probe가 응답을 기다리는 최대 시간
+  * default - 1초
+* failureThreshold
+  * 실패 상태로 간주되기 전 실패해야 하는 횟수
+  * default - 3회
+* successThreshold - 성공으로 판단하기까지 필요한 성공 응답 횟수
+  * Readiness 상태로 간주되기 전 성공해야 하는 횟수
+  * default - 1회
+
+* Startup Probe가 정의된 경우, 컨테이너 초기화 단계에서 Liveness Probe는 비활성화
+
+### Handler 그림 설명
+* ![](2024-11-21-00-07-54.png)
+
