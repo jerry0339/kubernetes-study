@@ -17,3 +17,4 @@
 * [흔들리는 도커의 위상](https://www.samsungsds.com/kr/insights/docker.html?referrer=https://www.google.com/) 
   * Docker & CRI(Container Runtime Interface) 관련...
 * [클라우드 네이티브](https://library.gabia.com/contents/infrahosting/12091/) 아키텍처란 ?
+* [k8s 네트워크 솔루션 Calico vs Flannel](https://www.jaenung.net/tree/4966)
