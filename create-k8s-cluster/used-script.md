@@ -108,6 +108,7 @@ sudo systemctl status containerd.service
 <br>
 
 ## 6. Kubernetes 설치
+* `1.30.7-1.1` 버전으로 설치
 ```sh
 # K8s 설치를 위한 패키지 설정
 sudo apt-get update
@@ -127,7 +128,7 @@ sudo apt-get update
 # 설치 가능한 버전 확인
 sudo apt-cache madison kubeadm
 
-# kubeadm, kubelet, kubectl 설치
+# kubeadm, kubelet, kubectl 설치 (1.30.7-1.1 버전)
 sudo apt-get install -y kubelet=1.30.7-1.1 kubeadm=1.30.7-1.1 kubectl=1.30.7-1.1
 ```
 * ![](2024-11-26-19-22-37.png)
@@ -213,3 +214,28 @@ kubectl get nodes
 * 따라서, `kubectl`은 그냥 **Master node에서 사용**하면 됨
 
 <br>
+
+## 12. GCP 머신 이미지 생성 및 이미지로 Worker노드 생성하기
+* Worker노드를 추가할때 위의 설치 과정을 매번 수행하면 번거로움
+  * GCP 이용시, 머신 이미지 생성하면 다음 Worker노드 생성시 Master노드에 쉽게 연결 가능
+
+### 머신 이미지 생성
+* `6. Kubernetes 설치` 항목에서 `kubeadm, kubelet, kubectl 설치`**전 까지**의 명령어 수행후 해당 vm의 이미지 생성하면 됨
+* 이미지 생성 이후 머신 이미지의 대상이 되는 인스턴스는 지워도 상관없음
+* ![](2024-11-27-10-10-26.png)
+
+### 이미지로 Worker노드 생성하기
+* containerd가 잘 설치 되었는지, 설치할 k8s의 버전이 apt목록에 있는지 확인
+* 해당 하는 머신 이미지로 인스턴스 생성후 **k8s를 설치**하고 `kubeadm join`커맨드로 Master노드에 연결해 주어야 함
+```sh
+# 설정 초기화 체크
+sudo systemctl status containerd.service
+sudo vi /etc/containerd/config.toml # `SystemdCgroup = true` 확인
+sudo apt-cache madison kubeadm # 설치할 버전이 목록에 뜨는지 확인
+
+# k8s를 설치하고 Worker노드를 Master노드에 연결하기
+sudo apt-get update
+sudo apt-get install -y kubelet=1.30.7-1.1 kubeadm=1.30.7-1.1 kubectl=1.30.7-1.1
+sudo kubeadm join {master-node-ip}:6443 --token {token} \
+    --discovery-token-ca-cert-hash sha256:{hash}
+```

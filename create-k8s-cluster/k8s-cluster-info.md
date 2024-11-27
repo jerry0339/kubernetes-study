@@ -22,8 +22,14 @@
 * [공식 문서 k8s 1.30](https://v1-30.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
 * https://jongsky.tistory.com/112
 * https://jbground.tistory.com/107
+* https://jongsky.tistory.com/113
+
+<br>
+
+## 클러스터 구축
+* [명령어 모음 링크](/create-k8s-cluster/used-script.md)
 
 <br>
 
 ## 대시보드 구축
-* https://jongsky.tistory.com/113
+* [명령어 모음 링크](/create-k8s-dashboard/used-script.md)
