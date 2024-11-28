@@ -19,7 +19,8 @@
 <br>
 
 ## 참고 링크
-* [공식 문서 k8s 1.30](https://v1-30.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+* [k8s 1.30 공식 문서](https://v1-30.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+* [dashboard 배포 공식 문서](https://kubernetes.io/ko/docs/tasks/access-application-cluster/web-ui-dashboard/)
 * https://jongsky.tistory.com/112
 * https://jbground.tistory.com/107
 * https://jongsky.tistory.com/113

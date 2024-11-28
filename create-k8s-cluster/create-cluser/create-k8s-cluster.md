@@ -138,15 +138,24 @@ sudo apt-get install -y kubelet=1.30.7-1.1 kubeadm=1.30.7-1.1 kubectl=1.30.7-1.1
 
 ## 7. Kubernetes 클러스터 초기화
 > **Master Node**가 위치한 vm에만 설정하면 됨
-
+* 클라우드 서비스 이용시 vm을 일시정지 하거나 중지시키면 외부IP가 변경될 수 있으므로 **외부IP 대신 도메인**을 사용하는 것이 좋다.
+  * AWS - Route53
+  * GCP - Cloud DNS
 ```sh
 # `Calico` 사용시: --pod-network-cidr=192.168.0.0/16
 # `Flannel` 사용시: --pod-network-cidr=10.244.0.0/16
 sudo kubeadm init \
-  --control-plane-endpoint={외부IP}:6443 \
+  --control-plane-endpoint={외부IP|도메인}:6443 \
   --apiserver-advertise-address={내부IP} \
   --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans={외부IP},{내부IP}
+  --apiserver-cert-extra-sans={외부IP|도메인},{내부IP}
+
+# 예시
+sudo kubeadm init \
+  --control-plane-endpoint=k8s-master.flowchat.shop:6443 \
+  --apiserver-advertise-address=10.178.0.14 \
+  --pod-network-cidr=192.168.0.0/16 \
+  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.14
 ```
 
 * 클러스터 초기화가 잘 끝나면 생성된 token과 함께 `kubeadm join`명령어가 출력됨
@@ -172,8 +181,13 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 * `calico`로 설치
 ```sh
-kubectl apply -f https://docs.projectcalico.org/v3.14/manifests/calico.yaml
+# calico 설치
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+# calico node와 controller가 Running중인지 확인
+kubectl get pods -n kube-system
 ```
+* ![](2024-11-28-18-03-26.png)
 * Flannel 설치 스크립트는 chatgpt에게...
 
 <br>
@@ -200,12 +214,16 @@ sudo kubeadm join {master-node-ip}:6443 \
 
 <br>
 
-## 11. 클러스터 상태 확인
+## 11. master노드 점검 및 클러스터 상태 확인
 > **Master Node**에서 확인 (kubectl)
 
 ```sh
+sudo systemctl status kubelet
+sudo systemctl status containerd
 kubectl get nodes
+kubectl get pods -n kube-system
 ```
+* ![](2024-11-28-18-03-26.png)
 * ![](2024-11-27-01-19-38.png)
 * **Worker 노드**에서 kubectl을 사용하려면, Master 노드에서 생성된 kubeconfig 파일(/etc/kubernetes/admin.conf)을 워커 노드로 복사해야 함
   * worker 노드에서 kubectl 명령어를 사용하면, kubeconfig 파일이 없거나 잘못된 경로를 참조하고 있기 때문에,
@@ -238,4 +256,8 @@ sudo apt-get update
 sudo apt-get install -y kubelet=1.30.7-1.1 kubeadm=1.30.7-1.1 kubectl=1.30.7-1.1
 sudo kubeadm join {master-node-ip}:6443 --token {token} \
     --discovery-token-ca-cert-hash sha256:{hash}
+
+# kubeadm join 예시
+sudo kubeadm join k8s-master.flowchat.shop:6443 --token 71wggq.c9a9icugczq3sfyi \
+        --discovery-token-ca-cert-hash sha256:7d2a6e1004c66b10220cae37e364e8f92676f18adf169d945cb8babfc1c92ec7
 ```
