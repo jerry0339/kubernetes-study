@@ -153,9 +153,9 @@ sudo kubeadm init \
 # 예시
 sudo kubeadm init \
   --control-plane-endpoint=k8s-master.flowchat.shop:6443 \
-  --apiserver-advertise-address=10.178.0.14 \
+  --apiserver-advertise-address=10.178.0.23 \
   --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.14
+  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.23
 ```
 
 * 클러스터 초기화가 잘 끝나면 생성된 token과 함께 `kubeadm join`명령어가 출력됨
@@ -221,6 +221,8 @@ sudo kubeadm join {master-node-ip}:6443 \
 sudo systemctl status kubelet
 sudo systemctl status containerd
 kubectl get nodes
+kubectl get deployment -n kube-system
+kubectl get svc -n kube-system
 kubectl get pods -n kube-system
 ```
 * ![](2024-11-28-18-03-26.png)
@@ -258,6 +260,11 @@ sudo kubeadm join {master-node-ip}:6443 --token {token} \
     --discovery-token-ca-cert-hash sha256:{hash}
 
 # kubeadm join 예시
-sudo kubeadm join k8s-master.flowchat.shop:6443 --token 71wggq.c9a9icugczq3sfyi \
-        --discovery-token-ca-cert-hash sha256:7d2a6e1004c66b10220cae37e364e8f92676f18adf169d945cb8babfc1c92ec7
+sudo kubeadm join k8s-master.flowchat.shop:6443 --token mnt2ki.mle6skbtfbe3q9mz \
+        --discovery-token-ca-cert-hash sha256:eb28f8650f52a4d18f63f80f3fe6983b69d98891454e7b0d447efd7c41cfc4dd
 ```
+
+<br>
+
+## 13. Dashboard 설치하기
+* [Dashboard 설치](/create-k8s-cluster/create-dashboard/create-dashboard.md)
