@@ -7,9 +7,9 @@
 <br>
 
 ## k8s docs
-* [k8s docs](https://kubernetes.io/docs/home/)
+* [k8s official docs](https://kubernetes.io/docs/home/)
 * [kubectl cheatsheet](https://kubernetes.io/ko/docs/reference/kubectl/cheatsheet/)
-
+* [k8s summary](https://github.com/kodekloudhub/certified-kubernetes-administrator-course?tab=readme-ov-file)
 <br>
 
 ## Articles
