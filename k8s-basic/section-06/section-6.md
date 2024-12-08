@@ -69,5 +69,35 @@
 * successThreshold
 * failureThreshold
 
+### Probe 별 옵션 지원 여부 정리
+|         옵션 / Probe          | Readiness Probe | Liveness Probe | Startup Probe |
+| :---------------------------: | :-------------: | :------------: | :-----------: |
+|      initialDelaySeconds      |        ✅        |       ✅        |       ✅       |
+|         periodSeconds         |        ✅        |       ✅        |       ✅       |
+|        timeoutSeconds         |        ✅        |       ✅        |       ✅       |
+|       successThreshold        |        ✅        |   ❌ (1 고정)   |  ❌ (1 고정)   |
+|       failureThreshold        |        ✅        |       ✅        |       ✅       |
+| terminationGracePeriodSeconds |        ❌        |       ✅        |       ✅       |
+
 ### 이미지 설명
 * ![](2024-11-20-22-28-50.png)
+
+<br><br>
+
+## Pod의 Qos
+### QOS 종류
+* `Guaranteed`
+* `Burstable`
+* `BestEffort`
+
+### **제거** 우선순위
+* 1.BestEffort
+* 2.Burstable
+* 3.Guaranteed
+
+<br><br>
+
+## Pod의 Node Scheduling
+* **Node선택** - NodeName, NodeSelector, NodeAffinity
+* **Pod집중/분산** - PodAffinity, AntiAffinity
+* **Node할당제한** - Toleration, Taint
