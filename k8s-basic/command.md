@@ -17,7 +17,7 @@ kubectl logs -n {네임스페이스} -f {파드 이름} # 실시간 로그
 kubectl logs {파드 이름} -c {컨테이너 이름} -n {네임스페이스} # 하나의 Pod에 여러개 컨테이너 있는 경우
 kubectl get {타입} -n {네임스페이스} --show-labels # 라벨 확인하기
 kubectl label {타입} -n {네임스페이스} {리소스이름} key=value # key=value 라벨 붙이기
-kubectl label {타입} -n {네임스페이스} {리소스이름} -key # key로 라벨 삭제하기
+kubectl label {타입} -n {네임스페이스} {리소스이름} key- # key로 라벨 삭제하기, key다음에 `-`붙이면 됨
 ~~~
 
 
