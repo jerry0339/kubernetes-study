@@ -42,6 +42,7 @@
 <br><br>
 
 ## Node에 할당 제한
-* 특정 노드에 Pod가 할당되지 않도록 제한할 수 있음
-* `Toleration`
-* `Taint`
+* `Taint`설정으로 특정 노드에 Pod가 할당되지 않도록 제한할 수 있음
+  * Taint설정된 노드에는 Pod설정에 NodeName으로 지정해도 해당 노드에 할당이 되지 않음
+* `Toleration`설정을 Pod에 추가해 주면, Taint설정이 들어간 노드에 해당 Pod가 할당될 수 있음
+* ![](2024-12-09-00-05-02.png)
