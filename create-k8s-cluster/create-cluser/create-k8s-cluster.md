@@ -108,18 +108,20 @@ sudo systemctl status containerd.service
 <br>
 
 ## 6. Kubernetes 설치
-* `1.30.7-1.1` 버전으로 설치
+* 설치하는 시점에 따라서 Kubernetes에서 지원하지 않는 버전의 package repository를 참조하는 경우 패키지 업데이트시 에러가 생길 수 있다.
+  * 최신 버전의 k8s를 설치해야 함
+* `v1.30.7-1.1` 버전으로 설치
 ```sh
 # K8s 설치를 위한 패키지 설정
 sudo apt-get update
 sudo apt-get install -y apt-transport-https ca-certificates curl
 sudo mkdir -p /etc/apt/keyrings
 
-# K8s 1.30 패키지 저장소 추가
+# K8s v1.30 패키지 저장소 추가
 # Download and configure the GPG key for the new repository
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-# Add the new repository (1.30)
+# Add the new repository (v1.30)
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 # 패키지 업데이트
@@ -153,9 +155,9 @@ sudo kubeadm init \
 # 예시
 sudo kubeadm init \
   --control-plane-endpoint=k8s-master.flowchat.shop:6443 \
-  --apiserver-advertise-address=10.178.0.23 \
+  --apiserver-advertise-address=10.178.0.27 \
   --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.23
+  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.27
 ```
 
 * 클러스터 초기화가 잘 끝나면 생성된 token과 함께 `kubeadm join`명령어가 출력됨
@@ -260,8 +262,8 @@ sudo kubeadm join {master-node-ip}:6443 --token {token} \
     --discovery-token-ca-cert-hash sha256:{hash}
 
 # kubeadm join 예시
-sudo kubeadm join k8s-master.flowchat.shop:6443 --token mnt2ki.mle6skbtfbe3q9mz \
-        --discovery-token-ca-cert-hash sha256:eb28f8650f52a4d18f63f80f3fe6983b69d98891454e7b0d447efd7c41cfc4dd
+sudo kubeadm join k8s-master.flowchat.shop:6443 --token jshhxq.gzkju5qh3d7vu8ui \
+        --discovery-token-ca-cert-hash sha256:711e3d1d41c3f6968d36e67b0641407cb8954c641a514545b4cb7ce5edaef03e
 ```
 
 <br>

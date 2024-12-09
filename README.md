@@ -19,3 +19,4 @@
 * [클라우드 네이티브 아키텍처란 ?](https://library.gabia.com/contents/infrahosting/12091/)
 * [k8s 네트워크 솔루션 Calico vs Flannel](https://www.jaenung.net/tree/4966)
 * [Metrics Server란?](https://nangman14.tistory.com/81)
+* [Helm vs Kustomize](https://www.gomgomshrimp.com/posts/k8s/helm-and-kustomize)
