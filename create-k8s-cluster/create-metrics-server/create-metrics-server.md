@@ -53,20 +53,18 @@ kubectl top nodes
 
 ## 4. `Metrics API not available`
 * Metrics Server가 설치되었지만, kubectl top 명령어를 사용할 때 "Metrics API not available" 오류가 발생하는 경우
-  * Metrics Server가 kubelet과의 통신에 실패했기 때문
+  * Metrics Server가 Node의 kubelet과의 통신에 실패했기 때문
 
-* Host Network 사용 설정
+* 왜인지 모르겠지만... metrics-server의 template설정에 `hostNetwork=true`옵션을 추가하면 해결이 된다. 
+  * `hostNetwork=true`옵션은 Pod가 자신이 배포된 node의 IP와 동일하게 설정되도록 하는 옵션이다.
+  * ![](2024-12-10-23-18-29.png)
+* 설정 방법
   ```sh
-  spec:
-    template:
-      spec:
-        hostNetwork: true
+  # `hostNetwork: true` 옵션을 metrics-server 설정에 추가
+  # spec.template.spec: 하위에 추가하면 됨
+  kubectl edit deployment metrics-server -n kube-system
   ```
 
-```sh
-# 위의 `hostNetwork: true` 내용을 metrics-server에 추가
-kubectl edit deployment metrics-server -n kube-system
-```
 
 <br><br>
 
@@ -80,12 +78,8 @@ kubectl get pods --all-namespaces
 # metrics server가 정상적으로 동작하고 있는지 확인
 kubectl top nodes
 ```
-* ![](2024-11-29-10-17-18.png)
+* ![](2024-12-10-23-23-14.png)
 
-```sh
-kubectl get pods --all-namespaces
-```
-* ![](2024-12-09-20-40-11.png)
 
 <br><br>
 

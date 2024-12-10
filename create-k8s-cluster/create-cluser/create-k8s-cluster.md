@@ -30,14 +30,15 @@ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 * Master Node의 Port 설정
 ```sh
 # 클라우드 플랫폼 이용시 콘솔에서 오픈!
-# master 노드 - 컨트롤 플레인 관련 포트 열기 
-sudo ufw allow 6443/tcp # Kubernetes API 서버 - 외부에서 클러스터 관리 시 필요
+# master 노드 - 컨트롤 플레인 관련 포트 열기
 sudo ufw allow 2379:2380/tcp # etcd 서버 클라이언트 API - kube-apiserver, etcd
+sudo ufw allow 6443/tcp # Kubernetes API 서버 - 외부에서 클러스터 관리 시 필요
 sudo ufw allow 10250/tcp # Kubelet API - 컨트롤 플레인
 # sudo ufw allow 10252/tcp - v1.20 이후로 deprecated. 10257로 변경됨
 sudo ufw allow 10257/tcp # kube-controller-manager - 컨트롤러 상태 정보 노출 및 내부 통신
 # sudo ufw allow 10251/tcp - v1.20 이후로 deprecated. 10259로 변경됨
 sudo ufw allow 10259/tcp # kube-scheduler - 스케줄러 상태 정보 노출 및 내부 통신
+sudo ufw allow 30000/tcp # dashboard 배포한 경우 dashboard용 포트, NodePort용도 이므로 30000:32767 범위면 됨
 sudo ufw allow 8285/udp # Flannel 사용시에만 오픈
 sudo ufw allow 8472/udp # Flannel 사용시에만 오픈
 ```
@@ -52,6 +53,10 @@ sudo ufw allow 30000:32767/tcp # NodePort 서비스 - 외부에서 애플리케�
 sudo ufw allow 8285/udp # Flannel 사용시에만
 sudo ufw allow 8472/udp # Flannel 사용시에만
 ```
+* 노드들을 각각 다른 vm에 배치해야 하므로, master노드에서 worker노드에 접근이 가능하도록 worker노드의 화이트리스트ip에 master노드를 추가해 주어야 함
+  * worker노드와 worker노드 사이 또는 worker에서 master노드로 접근 가능하도록 방화벽 정책을 설정하는 것은 고려해 봐야 함
+  * public / private IP 둘 다 whitelist에 추가해 줌 (matser가 무슨 ip로 접근하는지 모름)
+  * ![](2024-12-10-23-57-51.png)
 
 <br>
 

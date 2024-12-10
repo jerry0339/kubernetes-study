@@ -20,3 +20,4 @@
 * [k8s 네트워크 솔루션 Calico vs Flannel](https://www.jaenung.net/tree/4966)
 * [Metrics Server란?](https://nangman14.tistory.com/81)
 * [Helm vs Kustomize](https://www.gomgomshrimp.com/posts/k8s/helm-and-kustomize)
+* [Deploying Microservices: Spring Cloud vs. Kubernetes](https://dzone.com/articles/deploying-microservices-spring-cloud-vs-kubernetes#:~:text=Spring%20Cloud%20is%20a%20quick,wider%20range%20of%20microservices%20concerns.)
