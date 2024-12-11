@@ -26,7 +26,7 @@ kubectl label {타입} -n {네임스페이스} {리소스이름} key- # key로 �
   * `which kubectl` 명령어
   * 보통 /usr/bin디렉토리에 있음
 * `k`라는 alias를 symbolic link를 사용하여 생성
-  * `ln -s /usr/bin/kubectl /usr/local/bin/k`
+  * `sudo ln -s /usr/bin/kubectl /usr/local/bin/k`
 * 심볼릭 링크 확인
   * `ls -al /usr/local/bin`
   * ![](2024-12-09-17-02-27.png)

@@ -24,6 +24,9 @@ kubectl get svc -n kubernetes-dashboard
 # type변경과 port번호 추가
 # - nodePort: 30000 추가, type: NodePort 변경
 kubectl edit svc kubernetes-dashboard -n kubernetes-dashboard
+
+# NodePort로 잘 변경되었는지 확인
+kubectl get svc -n kubernetes-dashboard
 ```
 * ![](2024-11-28-18-56-45.png)
 * 잘 변경 됐다면, TYPE이 `NodePort`로 바뀌고 PORT가 `443:30000/TCP`로 변경되어야 한다.
