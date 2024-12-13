@@ -3,7 +3,7 @@
 * k8s cluster가 생성되어 있어야 함
 * [참고한 공식 문서](https://kubernetes.io/ko/docs/tasks/access-application-cluster/web-ui-dashboard/)
 
-<br>
+<br><br>
 
 ## 1. Dashboard 서비스 설치
 * v2.7.0 설치
@@ -16,7 +16,7 @@ kubectl get svc -n kubernetes-dashboard
 ```
 * ![](2024-11-28-16-24-16.png)
 
-<br>
+<br><br>
 
 ## 2. Dashboard 설정 변경 - NodePort
 * 외부 접속을 위해 ClusterIP에서 NodePort 설정 변경
@@ -32,7 +32,7 @@ kubectl get svc -n kubernetes-dashboard
 * 잘 변경 됐다면, TYPE이 `NodePort`로 바뀌고 PORT가 `443:30000/TCP`로 변경되어야 한다.
 * ![](2024-11-28-19-00-47.png)
 
-<br>
+<br><br>
 
 ## 3. 대시보드 로그인 페이지 확인
 * **kubernetes-dashboard 파드가 위치한 노드**의 ip나 domain을 입력해 주어야 함
@@ -46,7 +46,7 @@ kubectl get svc -n kubernetes-dashboard
   * https://{ip또는domain}:30000/#/login
   * ![](2024-11-28-20-09-53.png)
 
-<br>
+<br><br>
 
 ## 4. 계정 생성을 위한 yaml 파일 생성
 * 파일 2개 생성
@@ -83,7 +83,7 @@ kubectl get svc -n kubernetes-dashboard
   sudo vi /etc/kubernetes/dashboard/dashboard-clusterrolebinding.yaml
   ```
 
-<br>
+<br><br>
 
 ## 5. yaml 파일 적용하기
 
@@ -97,7 +97,7 @@ kubectl apply -f dashboard-clusterrolebinding.yaml
 ```
 * ![](2024-11-29-10-52-20.png)
 
-<br>
+<br><br>
 
 ## 6. 토큰 생성 및 로그인
 * 토큰 유효시간 삭제하기
@@ -113,21 +113,53 @@ kubectl apply -f dashboard-clusterrolebinding.yaml
 * ![](2024-11-29-10-53-05.png)
 * ![](2024-11-29-10-55-04.png)
 
-<br>
+<br><br>
 
 ## 7. 대시보드 로그인 생략하기
-* 생략 버튼 추가 하기
 
+### 7.1. 생략 버튼 추가 하기
 ```sh
 # `spec.template.spec.containers.args:`에  
 # `- --enable-skip-login` 추가, 
-# `- --enable-insecure-login` 추가
 kubectl edit deployment kubernetes-dashboard -n kubernetes-dashboard
 ```
 * ![](2024-11-29-12-05-31.png)
 * ![](2024-11-29-12-07-47.png)
-
+  
 <br>
+
+### 7.2. dashboard 서비스 계정에 권한 부여하기
+* 로그인 생략 버튼만 추가하면 권한이 부족하여 k8s 오브젝트에 접근할 수 없어 dashboard에서 에러가 생김
+* kubernetes-dashboard 계정에 ClusterRole권한을 부여해야 함
+* 권한 파일 생성성
+  ```sh
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: kubernetes-dashboard-admin
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cluster-admin
+  subjects:
+  - kind: ServiceAccount
+    name: kubernetes-dashboard
+    namespace: kubernetes-dashboard
+  ```
+  ```sh
+  # 위의 내용을 `kubernetes-dashboard-admin.yaml` 파일로 저장
+  sudo vi /etc/kubernetes/dashboard/kubernetes-dashboard-admin.yaml
+  ```
+* kubernetes-dashboard 서비스 계정에 권한 부여
+  ```sh
+  # 권한 파일 위치로 이동
+  cd /etc/kubernetes/dashboard
+
+  # 권한 적용
+  kubectl apply -f kubernetes-dashboard-admin.yaml
+  ```
+
+<br><br>
 
 ## 8. Metrics Server 설치하기
 * 대시보드에서 리소스들에 대한 정보를 확인하려면 Metrics Server를 설치해야함
