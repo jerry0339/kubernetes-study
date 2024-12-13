@@ -16,7 +16,7 @@ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 
 <br>
 
-## 2. 방화벽 Port 오픈
+## 2. 방화벽 정책 설정
 * 해당 문서에서 클러스터 구축 하는데에 네트워크 솔루션으로 `Calico`를 사용함
   * Flannel 사용시에는 8285, 8472 포트 오픈해 주어야 함
 * 외부 접근을 위한 포트
@@ -25,8 +25,11 @@ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 * 외부에서 접근 가능한 포트는 IP 화이트리스트를 설정 하는 것이 좋음
   * 6443/tcp - API 서버
   * 30000:32767/tcp - NodePort 서비스
-* 클라우드 플랫폼(GCP, AWS 등)을 사용하는 경우, 해당 플랫폼의 방화벽 규칙(Security Group, VPC 방화벽 등)을 통해 포트를 열어야 함
+* **클라우드 플랫폼(GCP, AWS 등)을 사용하는 경우**
+  * 해당 플랫폼의 방화벽 규칙(Security Group, VPC 방화벽 등)을 통해 포트를 열어야 함
   * GCP의 경우 VPC 네트워크 - 방화벽 - 방화벽 규칙 만들기에서 규칙 생성하고 vm의 네트워크 태그에 해당 방화벽 규칙의 태그 달아주면 됨
+  * 같은 VPC내에 인스턴스를 만드는 것이 좋음 - 다른 vpc라면 설정할 내용들이 많고 유지 보수하기 어려움
+  * Master노드와 Worker노드 사이는 화이트리스트 설정을 해 놓는 것이 좋음
 * Master Node의 Port 설정
 ```sh
 # 클라우드 플랫폼 이용시 콘솔에서 오픈!
@@ -165,9 +168,9 @@ sudo kubeadm init \
 # 예시
 sudo kubeadm init \
   --control-plane-endpoint=k8s-master.flowchat.shop:6443 \
-  --apiserver-advertise-address=10.178.0.27 \
+  --apiserver-advertise-address=10.178.0.30 \
   --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.27
+  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.30
 ```
 
 * 클러스터 초기화가 잘 끝나면 생성된 token과 함께 `kubeadm join`명령어가 출력됨
@@ -272,8 +275,8 @@ sudo kubeadm join {master-node-ip}:6443 --token {token} \
     --discovery-token-ca-cert-hash sha256:{hash}
 
 # kubeadm join 예시
-sudo kubeadm join k8s-master.flowchat.shop:6443 --token jshhxq.gzkju5qh3d7vu8ui \
-        --discovery-token-ca-cert-hash sha256:711e3d1d41c3f6968d36e67b0641407cb8954c641a514545b4cb7ce5edaef03e
+sudo kubeadm join k8s-master.flowchat.shop:6443 --token 7gf34c.m82j29du2i48jjpp \
+        --discovery-token-ca-cert-hash sha256:94e77a312c20e75a5ec53c979af26999f6621d9bf9d68229239116c83478f722
 ```
 
 <br>

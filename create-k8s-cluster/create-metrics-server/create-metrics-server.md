@@ -51,7 +51,16 @@ kubectl top nodes
 
 <br><br>
 
-## 4. `Metrics API not available`
+## 4. 이외에 Metrics 설치가 잘 안된 경우 해볼 수 있는 것들
+* 아래의 두가지 **네트워크 설정**을 점검한 이후 아래 내용들은 해결되었음
+  1. vm이 `같은 vpc내에 있는지` 확인 - 보통 cloud에서 하나의 계정의 같은 그룹내에 생성된 vm이면 같은 vpc내에 있음
+  2. Master 노드와 Worker노드 사이의 접근을 허용 (방화벽 `whitelist 설정`)
+     * master노드의 방화벽 설정으로, 모든 worker노드가 master노드의 모든 포트에 접근이 가능하도록 설정
+     * worker노드의 방화벽 설정으로, master 노드가 해당하는 worker 노드의 모든 포트에 접근이 가능하도록 설정
+
+<br>
+
+## 4.1. `Metrics API not available`
 * Metrics Server가 설치되었지만, kubectl top 명령어를 사용할 때 "Metrics API not available" 오류가 발생하는 경우
   * Metrics Server가 Node의 kubelet과의 통신에 실패했기 때문
 
@@ -64,28 +73,25 @@ kubectl top nodes
   # spec.template.spec: 하위에 추가하면 됨
   kubectl edit deployment metrics-server -n kube-system
   ```
+* Metrics Server 동작 체크
+  ```sh
+  # metrics server의 Pod가 Running 상태인지 확인
+  kubectl get pods --all-namespaces
+  ```
 
-
-<br><br>
-
-## 5. Metrics Server 동작 체크
-```sh
-# metrics server의 Pod가 Running 상태인지 확인
-kubectl get pods --all-namespaces
-```
-
-```sh
-# metrics server가 정상적으로 동작하고 있는지 확인
-kubectl top nodes
-```
+  ```sh
+  # metrics server가 정상적으로 동작하고 있는지 확인
+  kubectl top nodes
+  ```
 * ![](2024-12-10-23-23-14.png)
 
 
-<br><br>
+<br>
 
-## 6. kubernetes-dashboard 파드 Metric client health check failed
+## 4.2. kubernetes-dashboard 파드 Metric client health check failed
 * Metric client health check failed 확인
 * kubernetes-dashboard파드와 dashboard-metrics-scraper파드가 서로 다른 노드에 배치되어 접근을 못하는 상황임 (7에서 해결)
+  * 노드끼리의 통신이 잘 안되고 있는 경우
 ```sh
 # kubernetes-dashboard파드의 이름을 확인후
 kubectl get pod -n kubernetes-dashboard
@@ -95,9 +101,7 @@ kubectl get pod -n kubernetes-dashboard
 kubectl logs -n kubernetes-dashboard kubernetes-dashboard-778955f987-8kb47
 ```
 
-<br><br>
-
-## 7. kubernetes-dashboard파드와 dashboard-metrics-scraper파드 같은 노드 배치
+### 4.2.1. kubernetes-dashboard파드와 dashboard-metrics-scraper파드 같은 노드 배치하기
 * 다른 네트워크 설정 없이, 두 파드를 같은 노드에 배치하여 Pod IP로 바로 접근하여 health check 문제 해결
 * 특정 노드를 선택하여 kubernetes-dashboard파드와 dashboard-metrics-scraper파드를 같은 노드에 배치하기
 * 배치할 노드에 label 하나 붙여줌 (app=dashboard)
@@ -143,7 +147,7 @@ kubectl logs -n kubernetes-dashboard kubernetes-dashboard-778955f987-8kb47
   ```
   * ![](2024-12-09-20-52-30.png)
 
-## 8. kubernetes-dashboard에 sidecar 추가하기
+### 4.2.2. kubernetes-dashboard에 sidecar 추가하기
 * kubernetes-dashboard의 deployment 설정에서 sidecar 추가
   ```sh
   # spec.template.spec.containers.args: - --sidecar-host=http://{dashboard-metrics-scraper-IP}:8000
