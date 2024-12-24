@@ -55,9 +55,12 @@
 ### 2.1. podAffinity & podAntiAffinity 추가 설명
 * `podAffinity와 podAntiAffinity의 matchExpressions`설정을 통해 매칭되는 파드와 같거나(podAff) 다른(podAntiAff) 노드에 파드를 할당할 수 있음
   * 즉, 파드의 라벨과 매칭되는 matchExpressions설정
-* topologyKey 옵션을 통해 적용되는 노드의 범위를 지정할 수 있음
-  * ex1. podAffinity설정의 matchExpressions에서 해당되는 Pod가 있다고 해도 toplogyKey에 해당하는 노드에 매칭되는 Pod가 없다면 해당 파드는 생성되지 않음
-  * `todo:test` ex2. podAntiAffinity설정의 matchExpressions에서 해당되는 Pod가 있다고 해도
+* topologyKey 옵션을 통해 podAntiAffinity의 matchExpressions가 적용되는 노드의 범위를 지정할 수 있음
+  * ex. podAffinity설정의 matchExpressions에서 해당되는 Pod가 있다고 해도 toplogyKey에 해당하는 노드에 매칭되는 Pod가 없다면 해당 파드는 생성되지 않음
+* podAffinity 설정한 Pod의 matchExpressions에 해당되는 파드가 없다면, 해당 Pod는 생성되지 않고 pending상태에 머뭄
+  * 이후, matchExpressions에 해당되는 파드가 생성된다면 podAffinity 설정한 Pod도 같이 생성됨
+* podAntiAffinity 설정한 파드가 생성된 이후, 같은 노드에 podAntiAffinity matchExpressions에 해당되는 파드를 스케줄링 시키면 해당 파드는 pending상태에 머뭄
+  * podAntiAffinity 설정한 파드를 삭제한다면, 이후에 생성된 파드가 스케줄링될 수 있음
 * ![](2024-12-23-23-10-55.png)
 
 <br><br>
@@ -72,12 +75,15 @@
   * 따라서 Toleration설정한 Pod를 Taint설정된 특정 노드에 스케줄링 되도록 하고 싶다면, NodeSelector나 NodeAffinity를 설정해 주어야 함
 * ![](2024-12-09-00-05-02.png)
 
-### Taint & Toleration 추가 설명
-* NoSchedule 설정
+### Taint - effect설정
+* `NoSchedule` Taint effect
   * Master 노드의 default 설정으로 NoSchedule이 설정되어 있어 기본적으로 Pod가 할당되지 않음
   * NoSchedule 설정된 노드에 특정 파드를 스케줄링하고 싶다면, Pod의 Toleration설정에 effect:NoSchedule 옵션과 함께 노드의 Taint labels도 기재해 주어야 함
   * 파드가 이미 스케줄링 되어있는 노드에 NoSchedule설정을 추가해도, 기존의 파드들은 삭제되지 않음
-* NoExecute 설정
-  * NoSchedule과는 다르게, 파드가 이미 스케줄링 되어있는 노드에 NoExecute설정을 추가하면, 이미 스케줄링되어 있는 노드들도 삭제가 되고 replicaSet에 의해 다른 노드에 할당
+* `NoExecute` Taint effect
+  * NoSchedule과는 다르게, 파드가 이미 스케줄링 되어있는 노드에 NoExecute설정을 추가하면, 이미 스케줄링되어 있는 파드들도 삭제가 되고 replicaSet에 의해 다른 노드에 할당
   * cf. 특정 노드에 장애가 발생하면 해당 노드에 Taint:NoExecute 설정이 추가되고 스케줄링된 Pod들이 삭제된다. Pod가 옳바르지 않게 동작할 수 있기 때문.
+* `PreferNoschdule` Taint effect
+  * NoSchedule과 NoExecute Taint effect가 설정된 노드에 파드를 할당하기 위해서는 Pod의 Toleration 설정이 필수이지만,
+  * PreferNoschdule Taint effect가 설정된 노드에는 Cluster의 자원이 부족한 경우 파드가 스케줄링 될 수 있다.
 * ![](2024-12-23-23-17-26.png)

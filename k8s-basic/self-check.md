@@ -25,7 +25,10 @@
    * [시크릿을 위한 정보 보안](https://kubernetes.io/ko/docs/concepts/configuration/secret/) 참고
 7. OX: secret을 생성할때 value데이터는 반드시 Base64로 인코딩된 값을 입력해 주어야 한다.
    * 답: X, base64 인코딩 수행을 원하지 않는다면, 그 대신 stringData 필드를 사용할 수 있다.
-   * 예시
+   * <details>
+     <summary><b>예시</b></summary>
+     <div markdown="1">
+
      ~~~yaml
      apiVersion: v1
      kind: Secret
@@ -56,6 +59,9 @@
          usage-bootstrap-authentication: "true"
          usage-bootstrap-signing: "true"
      ~~~
+
+     </div>
+     </details>
 8. Pod에서 환경 변수 설정으로 ConfigMap을 컨테이너로 가져왔을때와 mount로 가져올때의 차이점은?
 9. OX: Namespace를 삭제하면 그 안의 오브젝트들(service, pod등)은 모두 삭제된다.
    * O: 모두 삭제됨
@@ -76,8 +82,69 @@
     * X: 워크로드들만 삭제된다. (Pod, ReplicaSet, Job 등)
 17. Rolling Update시 새로운 ReplicaSet이 생성될때 기존의 Pod와 연결되지 않는 이유?
     * [deployment문서 참고](/kubernetes-study/k8s-basic/section-05/2.Deployment/deployment.md)
-
 18. Readiness probe와 Liveness probe가 실패시 동작 차이점
     * Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만,
     * Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외
       * 서비스들의 엔드포인트 목록에서 해당 Pod의 IP가 제거됨
+19. podAffinity 설정한 Pod의 matchExpressions에 해당되는 파드가 없다면 어떻게 될까?
+    * 파드가 생성되지 않음 (pending 상태)
+    * podAffinity 설정한 Pod가 생성된 이후에, matchExpressions에 해당되는 파드가 생성된다면 어떻게 될까? (예시 참고)
+    * <details>
+      <summary><b>예시</b></summary>
+      <div markdown="1">
+
+      k8s-worker-01에 `a-team = 1` 라벨, <br>
+      k8s-worker-02에 `a-team = 2` 라벨이 할당된 상황 <br>
+
+      아래의 설정 정보로 server2 파드를 생성하면, <br>
+      `a-team`을 key로 가지는 노드에 할당된 <br>
+      `key=web2`라벨을 가진 Pod가 없기 때문에 server2 파드는 pending상태로 생성되지 않음 
+
+      ```yaml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: server2
+      spec:
+        affinity:
+          podAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:   
+            - topologyKey: a-team
+              labelSelector:
+                matchExpressions:
+                -  {key: type, operator: In, values: [web2]}
+        containers:
+        - name: container
+          image: kubetm/app
+        terminationGracePeriodSeconds: 0
+      ```
+
+      위의 server2파드가 생성된 상황에서, <br>
+      아래의 설정 정보를 가진 web2 파드를 생성하면, <br>
+      `a-team=2`라벨을 가진 k8s-worker-02 노드에 web2 파드가 스케줄링되고 <br>
+      server2 파드가 `type: web2`라벨을 podAffinity matchExpressions로 설정했기 때문에 <br>
+      pending 상태에 있던 server2파드 또한 k8s-worker-02 노드에 스케줄링된다.
+
+      ```yaml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: web2
+        labels:
+          type: web2
+      spec:
+        nodeSelector:
+          a-team: '2'
+        containers:
+        - name: container
+          image: kubetm/app
+        terminationGracePeriodSeconds: 0
+      ```
+
+      </div>
+      </details>
+
+20. 노드 Taint 설정시 `NoSchedule`과 `NoExecute` effect의 차이점
+    * 이미 스케줄링 되어 있는 파드들의 동작
+      * NoSchedule - 해당 노드에 생성되어 있는 Pod들은 삭제되지 않음
+      * NoExecute - 해당 노드에 생성되어 있는 Pod들은 모두 삭제됨
