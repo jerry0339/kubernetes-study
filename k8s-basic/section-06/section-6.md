@@ -1,10 +1,10 @@
 # Section 6
 * Pod에 대한 심화 개념 설명
-* 해당 페이지는 아래의 항목에 대한 종류만 나열
-  * Pod의 Life Cycle에 대해
-  * Pod의 Probe에 대해
-  * Pod의 QoS Classes
-  * Pod의 Node Scheduling
+* 해당 페이지는 아래의 항목에 대한 간략한 내용
+  * [Pod의 Life Cycle](/k8s-basic/section-06/1.Pod-Lifecycle/pod-lifecycle.md)
+  * [Pod의 Probe](/k8s-basic/section-06/2.Pod-Probe/pod-probe.md)
+  * [Pod의 QoS Classes](/k8s-basic/section-06/3.Pod-Qos-Classes/pod-qos-classes.md)
+  * [Pod의 Node Scheduling](/k8s-basic/section-06/4.Pod-Node-Scheduling/pod-node-scheduling.md)
 
 <br><br>
 

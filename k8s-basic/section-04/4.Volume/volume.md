@@ -1,9 +1,12 @@
 # Volume
 ## EmptyDir
-*  
 * volume 최초 생성시에는 항상 비어 있기 때문에 EmptyDir이라고 명칭함
 * **Pod내의 컨테이너들끼리 데이터를 공유**하기위해 EmptyDir Volume을 사용
-* **데이터 지속성 없음**: Volume path는 Pod안에 생성되므로 Pod재생성시 Volume내 데이터도 삭제됨
+* Volume path는 Pod안에 생성됨
+  * Volume path는 Pod안에 생성되므로 **데이터 지속성 없음**, Pod재생성시 Volume내 데이터도 삭제됨
+
+<br>
+
 ## HostPath
 * Node(Pod의 host)의 path를 volume으로 사용
   * 아래 그림에서는 Node1의 `/node-v1`디렉토리를 volume으로 사용
@@ -15,6 +18,9 @@
 * Pod생성시 yaml파일에서 `volumes:hostPath:path:..` 항목에 들어가는 Volume에 대한 경로는 host에 사전에 생성되어 있어야 함
   * `type: Directory` (default 설정으로 Volume에 해당하는 경로는 사전에 생성되어야 함)
   * `type: DirectoryOrCreate` (해당 type으로 설정하면 host에 경로가 없어도 알아서 생성해 줌)
+
+<br>
+
 ## PVC / PV
 1. PV 생성
    * `local:` 사용시 hostPath Volume처럼 로컬 경로 사용하는 것임
