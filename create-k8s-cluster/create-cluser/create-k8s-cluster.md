@@ -57,10 +57,10 @@ sudo ufw allow 30000:32767/tcp # NodePort 서비스 - 외부에서 애플리케�
 sudo ufw allow 8285/udp # Flannel 사용시에만
 sudo ufw allow 8472/udp # Flannel 사용시에만
 ```
-* 노드들을 각각 다른 vm에 배치해야 하므로, master노드와 worker노드 사이의 접근이 가능하도록 master노드와 worker노드의 화이트리스트 추가
-  * worker노드와 worker노드 사이로 접근 가능하도록 화이트리스트 설정하는 것은 고려해 봐야 함
+* 노드들을 각각 다른 vm에 배치해야 하므로, 노드 사이의 접근이 가능하도록 화이트리스트 추가
+  * Master노드와 Worker노드 사이의 통신은 필수이고, Pod사이의 통신이 필요할 수도 있으므로 모든 노드끼리 통신이 가능하도록 방화벽 규칙 추가
   * public / private IP 둘 다 whitelist에 추가해 줌
-  * master노드와 worker노드의 화이트리스트 설정 예시
+  * master노드와 worker노드의 화이트리스트 설정 예시 (예시 이외에, worker노드 끼리 통신이 가능하도록 방화벽 규칙 추가해 주어야 함)
   * ![](2024-12-11-00-05-25.png)
 
 

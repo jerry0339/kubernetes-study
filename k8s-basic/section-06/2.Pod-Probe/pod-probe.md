@@ -1,6 +1,9 @@
 # Pod - Probe
 * Probe는 컨테이너에서 kubelet에 의해 주기적으로 수행되는 진단
 * kubelet은 컨테이너의 상태를 진단하기 위해 Handler를 호출
+* Probe는 **stateless한 서비스에 효율적으로 동작**함
+  * 빠르게 auto-healing이 가능하기 때문
+  * cf. stateful 서비스에서는 재시작하는 것이 문제가 되기 때문에 Probe가 효과적이지 못함
 * Probe를 통해 컨테이너의 상태를 주기적으로 체크
   * 문제가 있는 컨테이너를 자동으로 재시작 하거나
   * 문제가 있는 컨테이너를 서비스에서 제외할 수 있음

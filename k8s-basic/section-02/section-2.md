@@ -32,7 +32,14 @@
 ## 3. kubernetes Overview (Object들 설명)
 * Master Node - 클러스터에 관한 전반적인 관리 및 제어, 이벤트를 감지하고 반응하는 역할
 * Worker Node - 컨테이너화된 애플리케이션을 동작하고 유지시키는 역할
-* Cluster 구성
+
+### Cluster 구성
+* `master 노드`
+* ![](2024-12-31-01-34-40.png)
+* `cluster 전체 구성도`
+* ![](2024-12-31-01-36-27.png)
+
+### Object와 Controller
 * ![](2024-10-11-01-21-17.png)
 
 <br>

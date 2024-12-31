@@ -25,6 +25,9 @@ kubectl label {타입} -n {네임스페이스} {리소스이름} key- # key로 �
 
 kubectl taint nodes k8s-node1 {key}={value}:{effect} # 노드 taint 설정, effect는 `NoSchedule` or `NoExecute`
 kubectl taint nodes k8s-node1 hw=gpu:NoSchedule- # Taint 삭제는 끝에 `-`만 붙이면 됨
+
+kubectl exec {파드 이름} -it /bin/bash # 해당하는 파드에 접속, exit로 나올 수 있음
+nslookup {도메인 이름} # DNS record를 조회할 수 있는 커맨드, k8s 클러스터 내의 오브젝트의 도메인도 검색 가능, ip를 확인할 수 있음
 ~~~
 
 
