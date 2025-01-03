@@ -12,6 +12,7 @@ docker build -t {이미지명}:{태그} "." # Dockerfile이 현재 디렉토리�
 docker build -f {Dockerfile} -t {이미지명}:{태그} # -f 옵션으로 도커파일 경로 지정 가능
 
 # 이미지 Docker Hub에 푸시
+# 이미지 명에 허브id가 포함되어 있어야 함 ex. jerry0339/memberservice
 docker push {도커허브Id}/{이미지명}:{태그명} # `{허브id}/`가 반드시 포함되어야 함
 
 # 이미지 Docker Hub로부터 pull
