@@ -10,3 +10,6 @@
     * 클라우드 서비스를 이용하는 경우, LoadBalancer 타입의 서비스를 이용하여 도메인으로 접근하는 방법
     * ![](2024-12-28-18-47-58.png)
 * Volume 오브젝트에 대한 추가 설명
+  * storage solution
+  * Dynamic Provisioning
+  * Volume의 Status & Reclaim Policy

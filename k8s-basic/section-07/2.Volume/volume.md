@@ -1,5 +1,8 @@
 # Volume
-
+* `todo`: 추후 Storage Solution 설치시 다시 정리
+* Storage Solution
+  * [RookCeph or GlusterFS설치]()
+* Dynamic Provisioning
 
 ## Provisioning?
 * `Static Provisioning` ?
@@ -13,4 +16,5 @@
   * 각 StorageClass는 PV를 생성하는 책임이 있는 프로비저너를 지정
   * 사용자가 특정 StorageClass를 참조하는 PVC를 생성하면 프로비저너는 PVC의 요구 사항과 일치하는 PV를 자동으로 생성
 
-## Dynamic Provisioning을 지원하는 Storage Solution
+## Volume의 Status와 ReclaimPolicy
+* ![](2025-01-03-22-59-34.png)
