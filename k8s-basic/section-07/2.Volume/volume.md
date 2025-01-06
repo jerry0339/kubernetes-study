@@ -1,5 +1,6 @@
 # Volume
-* `todo`: 추후 Storage Solution 설치시 다시 정리
+* `todo1`: Storage Solution 설치
+* `todo2`: StatefulSet - MongoDB
 * Storage Solution
   * [RookCeph or GlusterFS설치]()
 * Dynamic Provisioning
