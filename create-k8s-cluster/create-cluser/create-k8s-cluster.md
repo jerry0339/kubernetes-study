@@ -41,7 +41,6 @@ sudo ufw allow 10250/tcp # Kubelet API - 컨트롤 플레인
 sudo ufw allow 10257/tcp # kube-controller-manager - 컨트롤러 상태 정보 노출 및 내부 통신
 # sudo ufw allow 10251/tcp - v1.20 이후로 deprecated. 10259로 변경됨
 sudo ufw allow 10259/tcp # kube-scheduler - 스케줄러 상태 정보 노출 및 내부 통신
-sudo ufw allow 30000/tcp # dashboard 배포한 경우 dashboard용 포트, NodePort용도 이므로 30000:32767 범위면 됨
 sudo ufw allow 8285/udp # Flannel 사용시에만 오픈
 sudo ufw allow 8472/udp # Flannel 사용시에만 오픈
 # 8000 8443 4443
@@ -95,6 +94,7 @@ sudo sysctl --system
 ## 4. Containerd 설치 및 설정
 ```sh
 # containerd 설치
+sudo apt-get update
 sudo apt install -y containerd
 
 # containerd 설정 파일 생성 및 수정
@@ -168,9 +168,9 @@ sudo kubeadm init \
 # 예시
 sudo kubeadm init \
   --control-plane-endpoint=k8s-master.flowchat.shop:6443 \
-  --apiserver-advertise-address=10.178.0.30 \
+  --apiserver-advertise-address=10.178.0.40 \
   --pod-network-cidr=192.168.0.0/16 \
-  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.30
+  --apiserver-cert-extra-sans=k8s-master.flowchat.shop,10.178.0.40
 ```
 
 * 클러스터 초기화가 잘 끝나면 생성된 token과 함께 `kubeadm join`명령어가 출력됨
@@ -275,8 +275,8 @@ sudo kubeadm join {master-node-ip}:6443 --token {token} \
     --discovery-token-ca-cert-hash sha256:{hash}
 
 # kubeadm join 예시
-sudo kubeadm join k8s-master.flowchat.shop:6443 --token 7gf34c.m82j29du2i48jjpp \
-        --discovery-token-ca-cert-hash sha256:94e77a312c20e75a5ec53c979af26999f6621d9bf9d68229239116c83478f722
+sudo kubeadm join k8s-master.flowchat.shop:6443 --token ek38j6.dfs9qrpz26ag2ayw \
+        --discovery-token-ca-cert-hash sha256:444626e4d4a266d54b4acb372bc2f431ec14d34808c2a6b0a6ac269c3da1fd61
 ```
 
 <br>

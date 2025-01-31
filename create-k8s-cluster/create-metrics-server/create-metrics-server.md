@@ -20,7 +20,6 @@
 * x509 에러 임시 해결하기 위한 과정
 ```sh
 - --kubelet-insecure-tls
-- --kubelet-preferred-address-types=InternalIP, ExternalIP, Hostname
 ```
 
 ```sh
@@ -55,8 +54,8 @@ kubectl top nodes
 * 아래의 두가지 **네트워크 설정**을 점검한 이후 아래 내용들은 해결되었음
   1. vm이 `같은 vpc내에 있는지` 확인 - 보통 cloud에서 하나의 계정의 같은 그룹내에 생성된 vm이면 같은 vpc내에 있음
   2. Master 노드와 Worker노드 사이의 접근을 허용 (방화벽 `whitelist 설정`)
-     * master노드의 방화벽 설정으로, 모든 worker노드가 master노드의 모든 포트에 접근이 가능하도록 설정
-     * worker노드의 방화벽 설정으로, master 노드가 해당하는 worker 노드의 모든 포트에 접근이 가능하도록 설정
+     * master노드의 방화벽 설정으로, 모든 worker노드가 master노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)
+     * worker노드의 방화벽 설정으로, master 노드가 해당하는 worker 노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)
 
 <br>
 

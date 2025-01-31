@@ -7,7 +7,7 @@ kubectl api-resources # 전체 api 리소스 확인
 
 kubectl get all -n {네임스페이스} | grep {검색어}
 kubectl get {타입1},{타입2} -n {네임스페이스}
-kubectl get {타입} -n {네임스페이스} -o wide {리소스이름}
+kubectl get {타입} -n {네임스페이스} -o wide {리소스이름} # IP, Node 정보까지 모두 확인
 kubectl get {타입} -n {네임스페이스} -o json {리소스이름} # 리소스 정보 json형식으로 조회
 kubectl describe {타입} -n {네임스페이스} {리소스이름} # 리소스 상세 조회
 
