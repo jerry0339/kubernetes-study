@@ -31,5 +31,6 @@
 <br><br>
 
 ## StatefulSet에 PVC(PersistentVolumeClaim)와 Headless Service 연결하기
-* `todo1`: section7 volume - Storage Solution 설치
-* `todo2`: StatefulSet - MongoDB
+* ![](2025-01-07-09-18-59.png)
+* ReplicaSet으로 생성되는 Pod에 PV를 연결하려면 PVC가 생성되어 있어야 함
+* 정리중...
