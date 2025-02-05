@@ -1,4 +1,6 @@
 # Ubuntu에 Jenkins 설치 및 기본 setting
+* k8s환경에서 배포에 필요한 내용들 모두 포함
+  * Java 설치부터 Helm 설치까지
 
 ## 1. Java 설치 (openjdk-17)
 ```sh
