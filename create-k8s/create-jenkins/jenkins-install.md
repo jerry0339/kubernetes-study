@@ -150,6 +150,22 @@ systemctl status jenkins
 * 이름을 도메인으로 사용할 경우, 도메인 소유 인증이 필요함
   * 서치콘솔에서 인증 가능 - https://search.google.com/search-console?hl=ko
   * 이후 서치콘솔의 안내에 따라 진행하면 되는데 txt타입으로 도메인 레코드를 생성하면 됨
+* c.f. gsutil 이란?
+  * Cloud Storage에 액세스하는 데 사용할 수 있는 도구
+  * 사용 예시
+    ```sh
+    gcloud auth login # 구글 ID로 로그인
+    gsutil ls gs://upload1.flowchat.shop
+
+    # 업로드
+    gsutil cp .kube/config gs://upload1.flowchat.shop
+    # 다운로드
+    gsutil cp gs://upload1.flowchat.shop/config config
+    # 디렉토리 전체 업로드
+    gsutil -m cp -R {디렉토리} gs://upload1.flowchat.shop
+    gsutil -m cp -r gs://upload1.flowchat.shop/api-tester helm
+    ```
+
 
 <br>
 
