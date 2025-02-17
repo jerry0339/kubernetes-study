@@ -2,6 +2,12 @@
 * k8s환경에서 배포에 필요한 내용들 모두 포함
   * Java 설치부터 Helm 설치까지
 
+### git 설치
+* git은 보통 설치되어 있음
+* 되어 있지 않다면, `sudo apt install git` 설치 후 `git --version` 확인
+
+<br><br>
+
 ## 1. Java 설치 (openjdk-17)
 ```sh
 # Java 17 설치
@@ -10,13 +16,13 @@ sudo apt install openjdk-17-jdk
 java -version # 설치 확인
 
 # JAVA_HOME 설정 (java 17로)
-cd /usr/lib/jvm/java # 해당 경로에서 java17 경로 확인
+cd /usr/lib/jvm/{java...} # 해당 경로에서 java17 경로 확인
 sudo vi /etc/environment # PATH=... 다음줄에 JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64" 추가
 source /etc/environment # 변경값 적용
 echo $JAVA_HOME # 적용되었는지 확인
 ```
 
-<br>
+<br><br>
 
 ## 2. Jenkins 설치
 
@@ -32,24 +38,11 @@ sudo apt-get install jenkins
 systemctl status jenkins
 ```
 
-<br>
+<br><br>
 
-## 3. Jenkons 초기화
-* 아래 스크립트로 초기 패스워드 확인
-    ```sh
-    # Jenkins 초기 패스워드 확인
-    sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-    ```
-* 8080포트 열기
-* 이후 도메인:8080 으로 접속하여 Unlcok Jenkins, Install suggested plugins 수행
-* 계정 생성
-* Jenkins 인스턴스의 URL을 설정
-  * default로 port가 8080으로 되어 있는데, 포트를 바꾸고 싶다면 변경할 포트로 입력
-
-<br>
-
-## 4. Jenkins port 변경하기
-* 아래 스크립트로 jenkins.service vim 켜서 `Environment="JENKINS_PORT=8080"`의 8080포트를 변경
+## 3. Jenkins port 변경하기 (필요시)
+* default는 8080으로 접속 가능
+* 아래 스크립트로 jenkins.service vim 켜서 `Environment="JENKINS_PORT=8080"`의 8080포트를 변경 - ex. 18080 or 9090
     ```sh
     sudo chmod 777 /usr/lib/systemd/system/jenkins.service
     sudo vim /usr/lib/systemd/system/jenkins.service
@@ -63,9 +56,25 @@ systemctl status jenkins
     sudo systemctl status jenkins
     ```
 
-* 변경된 port를 open시켜주기
+* 변경된 port를 open시켜주기 (Cloud 이용할 경우)
 
-<br>
+<br><br>
+
+## 4. Jenkons 초기화
+* 아래 스크립트로 초기 패스워드 확인
+    ```sh
+    # Jenkins 초기 패스워드 확인
+    sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+    ```
+* 8080포트 열기
+* 이후 도메인:8080 으로 접속하여 Unlcok Jenkins, Install suggested plugins 수행
+* 계정 생성
+* Jenkins 인스턴스의 URL을 설정
+  * default로 port가 8080으로 되어 있는데, 포트를 바꾸고 싶다면 변경할 포트로 입력
+
+
+
+<br><br>
 
 ## 5. Jenkins Gradle 및 Jdk 설정
 * gradle은 8.11.1 버전으로 세팅함
@@ -96,11 +105,13 @@ systemctl status jenkins
     ```
 
 * `Jenkins 관리 - Tool`에서 아래와 같이 jdk와 gradle 설정하기
+  * ex1. `/usr/lib/jvm/java-17-openjdk-amd64`
+  * ex2. `/opt/gradle/gradle-8.11.1`
   * gradle의 경우 `$GRADLE_HOME`에 해당하는 경로 수동으로 작성
   * ![](2025-02-02-01-17-26.png)
   * ![](2025-02-02-01-20-44.png)
 
-<br>
+<br><br>
 
 ## 6. Docker설치 및 Jenkins의 Docker 사용 설정
 * Docker 설치
@@ -123,13 +134,30 @@ systemctl status jenkins
     ```
   * ![](2025-02-02-01-36-21.png)
 
-<br>
+<br><br>
 
 ## 7. kubectl 설치 및 gcp cloud storage를 이용한 kubeconfig 다운로드
-> **AWS의 S3**나 다른 방법으로 `kubeconfig`파일을 업로드하고 다운로드해도 됨, 아래의 내용은 **gcp의 cloud storage**를 이용함
+> jenkins가 설치된 서버에서, 다른 서버에 설치된 k8s cluster의 API서버에 접근하기 위한 과정임
+> 
+> **AWS의 S3**나 다른 방법으로 `kubeconfig`파일을 업로드하고 다운로드해도 됨, 아래의 내용은 **GCP의 Cloud Storage**를 이용함
+
+<br>
+
+### 7-1. GCP Cloud Storage 생성하기
+* Cloud Storage에서 버킷을 생성
+* 이름은 사용중인 도메인을 포함한 하위 도메인으로 생성하면 됨
+  * ex. `upload.snowball.com`
+* 이름을 도메인으로 사용할 경우, 도메인 소유 인증이 필요함
+  * 서치콘솔에서 인증 가능 - https://search.google.com/search-console?hl=ko
+  * 이후 서치콘솔의 안내에 따라 진행하면 되는데 txt타입으로 도메인 레코드를 생성하면 됨
+
+<br>
+
+### 7-2. Master Node에서 kube config파일 업로드
 * kubeconfig는 k8s-master노드의 `~/.kube/config`에 위치
-* master node에서 cloud storage로 kubeconfig 업로드
+* master node에서 cloud storage로 kubeconfig를 업로드
   ```sh
+  # 로그인
   gcloud auth login
   # config 파일 업로드
   gsutil cp .kube/config gs://upload1.flowchat.shop
@@ -137,6 +165,9 @@ systemctl status jenkins
   gsutil ls gs://upload1.flowchat.shop
   ```
 
+<br>
+
+### 7-3. Jenkins서버에 kubectl 설치
 * jenkins가 설치된 vm에서 kubectl 설치
   ```sh
   # kubectl 설치 - 1.30.7
@@ -144,7 +175,12 @@ systemctl status jenkins
   chmod +x kubectl
   sudo mv kubectl /usr/local/bin/
   ```
+
+<br>
+
+### 7-4. Jenkins서버에 kube config파일 다운로드
 * config 다운로드 - jenkins user경로에 설치해야 하는지, 계정에 해당하는 user경로에 몰라서 둘 다 설치함
+  * 계정에 해당하는 user경로에 설치하는 경우, 아래와 같이 `.kube` 디렉토리 하위에 config가 위치해야 `localhost:8080...` 에러가 안뜸
   ```sh
   # jenkins user가 kubectl 사용할 수 있도록 설정
   sudo su - jenkins -s /bin/bash
@@ -163,6 +199,8 @@ systemctl status jenkins
   * 이후, kubectl명령어 이용하여 클러스터 자원 확인
   * ![](2025-02-03-19-12-32.png)
   * ![](2025-02-03-19-18-46.png)
+
+<br><br>
 
 ## 8. Helm 설치
 * 3.13.2 버전 설치
