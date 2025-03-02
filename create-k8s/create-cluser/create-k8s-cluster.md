@@ -56,11 +56,13 @@ sudo ufw allow 30000:32767/tcp # NodePort 서비스 - 외부에서 애플리케�
 sudo ufw allow 8285/udp # Flannel 사용시에만
 sudo ufw allow 8472/udp # Flannel 사용시에만
 ```
-* 노드들을 각각 다른 vm에 배치해야 하므로, 노드 사이의 접근이 가능하도록 화이트리스트 추가
-  * Master노드와 Worker노드 사이의 통신은 필수이고, Pod사이의 통신이 필요할 수도 있으므로 모든 노드끼리 통신이 가능하도록 방화벽 규칙 추가
-  * public / private IP 둘 다 whitelist에 추가해 줌
-  * master노드와 worker노드의 화이트리스트 설정 예시 (예시 이외에, worker노드 끼리 통신이 가능하도록 방화벽 규칙 추가해 주어야 함)
-  * ![](2024-12-11-00-05-25.png)
+* 노드들을 각각 다른 vm에 배치해야 하므로 노드 사이의 접근이 가능하도록, vpc단위로 방화벽 open하거나 각각의 vm의 화이트리스트 추가
+  * c.f. Master노드와 Worker노드 사이의 통신은 필수이고, Pod사이의 통신이 필요할 수도 있으므로 모든 노드끼리 통신이 가능하도록 방화벽 규칙 추가해야 함
+  * 왼쪽 이미지 (allow-internal-all) - vpc 단위로 방화벽 open
+    * 대상을 서비스 계정으로 설정하고, IP범위는 10.178.x.x 여서 `10.178.0.0/16`으로 설정함
+    * 정책 생성후 상세 정보에서 적용된 vm들 확인 가능
+  * 오른쪽 이미지 (k8s-xxx-whitelist) - master노드와 worker노드의 화이트리스트 설정 예시
+  * ![](2025-03-02-17-37-58.png)
 
 
 
@@ -97,11 +99,10 @@ sudo sysctl --system
 sudo apt-get update
 sudo apt install -y containerd
 
-# containerd 설정 파일 생성 및 수정
+# **아래의 4항목(containerd 설정 파일 생성 및 수정)은 안해도 되는듯 함**
 sudo mkdir -p /etc/containerd
 sudo containerd config default | sudo tee /etc/containerd/config.toml
 sudo vi /etc/containerd/config.toml
-
 # SystemdCgroup = true 로 수정 후 저장
 ```
 * ![](2024-11-26-19-04-16.png)
