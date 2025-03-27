@@ -70,3 +70,65 @@ kubectl exec -it redis-cluster-0 -n redis -- \
   redis-cli --cluster check 127.0.0.1:6379 -a {redis_password}
 ```
 * ![](2025-03-27-20-26-58.png)
+
+<br><br>
+
+## 5. Redis Cluster Headless 서비스 접근 하기, Headless Service 개념
+* 다른 Service Pod에서 Redis Cluster 스테이트풀 셋으로 생성된 Redis Pod에 접근하는 방법?
+  * Headless Service를 통하여 Pod에서 Pod로 접근이 가능
+  * ![](2025-03-27-23-48-53.png)
+
+<br>
+
+### 1. Headless Service 생성 (개념 확인용)
+* 위의 4번까지의 내용을 잘 수행했다면 `redis-cluster-headless`라는 Headless 서비스가 생성되었을 것이므로 **Headless Service를 추가적으로 생성할 필요가 없음!**
+* 먼저 redis-cluster 스테이트풀 셋의 `spec.serviceName`과 `spec.template.metadata.labels`중 하나(instance로)를 확인
+* 위에서 확인한, 같은 이름의 serviceName과 확인한 label을 selector로 지정하여 Headless 서비스를 생성해 주어야 한다.
+  * ![](2025-03-27-23-14-16.png)
+  * ![](2025-03-27-23-25-10.png)
+* 위 내용 확인하여 아래 예시와 같은 설정 정보로 Headless service 생성
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: redis-cluster-headless # Redis Cluster StatefulSet에 설정된 serviceName와 일치해야 함
+    namespace: redis  # Redis Cluster가 배포된 네임스페이스
+    labels:
+      app.kubernetes.io/name: redis-cluster
+  spec:
+    clusterIP: None  # Headless Service로 설정
+    selector:
+      app.kubernetes.io/instance: redis-cluster  # StatefulSet의 Label과 일치해야 함
+    ports:
+      - name: redis
+        port: 6379
+        targetPort: 6379
+  ```
+
+### 2. Headless Service로 Redis Pod에 접근하기
+* Headless Service가 등록되어 있다면 FQDN(Fully Qualified Domain Name)에 따라 아래와 같은 도메인으로 등록됨
+  * `{Headless-Service-name}.{namespace}.svc.cluster.local`
+  * 따라서, redis 네임스페이스에 redis-cluster-headless 이름으로 생성했다면, 
+    * redis-cluster-headless.redis.svc.cluster.local으로 coreDNS(k8s service discovery)에 service에 대한 도메인이 등록됨
+  * CoreDNS는 Pod로 생성되어 클러스터내에 위치해 있기 때문에, 클러스터 네트워크 대역에 해당하는 출발지(즉, 같은 대역폭)에서 `nslookup` 명령어로 확인 가능함
+  * ![](2025-03-27-23-53-15.png)
+* StatefulSet으로 생성된 Pod에도 도메인을 통해 바로 접근이 가능함
+  * `{Pod-Name},{Headless-Service-Name}.{Namespace}.svc.cluster.local` - ex. redis-cluster-0.redis-cluster-headless.redis.svc.cluster.local
+* Pod의 도메인을 이용하여 Spring 애플리케이션
+
+<br><br>
+
+## 6. Redis CLI 접속
+* redis-tool을 설치하면 접속 가능
+  ```sh
+  sudo apt update
+  sudo apt install redis-tools # CLI 사용을 위한 redis-tools 설치
+  kubectl exec -it {pod-name} -n redis -- redis-cli -a {redis-password}
+  # ex. kubectl exec -it redis-cluster-0 -n redis -- redis-cli -a 1234
+  ```
+* `MOVED 오류`
+  * redis cluster라서 저장하려는 키가 현재 연결된 노드가 아닌 다른 노드에 할당된 슬롯일 수 있음
+  * Redis Cluster는 데이터를 16384개의 해시 슬롯으로 분산 저장하며, 각 슬롯은 특정 마스터 노드에서 관리하기 때문
+  * ![](2025-03-28-02-33-26.png)
+  * 따라서 해당하는 redis 노드의 pod로 다시 이동후 명령어 수행 가능함
+  * ![](2025-03-28-02-37-18.png)

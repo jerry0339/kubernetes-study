@@ -24,6 +24,11 @@
 * 인스턴스 수정에서 디스크 추가가 가능함
 * 모든 노드에 빈 디스크를 추가 (ceph-disk-00 ~ 03, 용량 10GB)
   * ![](2025-03-25-03-12-59.png)
+  * 또는 명령어로 특정 디스크 데이터 초기화
+    ```sh
+    sudo wipefs -a /dev/sdb # 초기화할 디스크 경로 입력
+    sudo sgdisk --zap-all /dev/sdb # 초기화할 디스크 경로 입력
+    ```
 * 추가로 인스턴스 삭제시 디스크도 삭제되도록 설정
   * ![](2025-03-25-03-21-33.png)
 * `lsblk`과 `sudo fdisk -l` 명령어로 확인한 결과 빈 디스크인 sdb가 생성된 것을 확인 가능함
@@ -62,14 +67,14 @@ kubectl apply -f operator.yaml
   cd rook/deploy/examples
   kubectl apply -f cluster.yaml
   ```
-* 특정 노드의 디스크만 사용하고자 한다면 아래와 같이 세팅 가능
+* `특정 노드` 또는 `특정 디스크`를 사용하고자 한다면 아래와 같이 세팅 가능
   ```yaml
   # cluster.yaml 수정
   spec:
     storage:
       useAllNodes: false # default: true
       useAllDevices: false # default: true
-      nodes: # 아래와 같이 노드를 지정해 주지 않으면 알아서 빈 디스크에 설정
+      nodes: # 아래와 같이 노드와 디스크를 지정해 주지 않으면 알아서 빈 디스크로 설정
       - name: "k8s-worker-01" 
         devices:
         - name: "sdb"
