@@ -54,8 +54,9 @@ kubectl top nodes
 * 아래의 두가지 **네트워크 설정**을 점검한 이후 아래 내용들은 해결되었음
   1. vm이 `같은 vpc내에 있는지` 확인 - 보통 cloud에서 하나의 계정의 같은 그룹내에 생성된 vm이면 같은 vpc내에 있음
   2. Master 노드와 Worker노드 사이의 접근을 허용 (방화벽 `whitelist 설정`)
-     * master노드의 방화벽 설정으로, 모든 worker노드가 master노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)
-     * worker노드의 방화벽 설정으로, master 노드가 해당하는 worker 노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)
+     * ~~master노드의 방화벽 설정으로, 모든 worker노드가 master노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)~~
+     * ~~worker노드의 방화벽 설정으로, master 노드가 해당하는 worker 노드의 모든 포트에 접근이 가능하도록 설정 (private, public 모두)~~
+     * 그냥 같은 VPC내의 모든 vm끼리의 통신을 허용하는 규칙 하나만 생성해 주면 됨
 
 <br>
 
@@ -87,7 +88,8 @@ kubectl top nodes
 
 <br>
 
-## 4.2. kubernetes-dashboard 파드 Metric client health check failed
+## 4.2. kubernetes-dashboard 파드에서의 Metric client health check failed 이슈 해결
+* 아래 내용들은 Metrics Server 설치를 위한 근본적인 해결책이 아님 - kubernetes-dashboard 에서의 Metrics Server 동작 문제 해결 위함
 * Metric client health check failed 확인
 * kubernetes-dashboard파드와 dashboard-metrics-scraper파드가 서로 다른 노드에 배치되어 접근을 못하는 상황임 (7에서 해결)
   * 노드끼리의 통신이 잘 안되고 있는 경우
@@ -147,6 +149,9 @@ kubectl logs -n kubernetes-dashboard kubernetes-dashboard-778955f987-8kb47
   * ![](2024-12-09-20-52-30.png)
 
 ### 4.2.2. kubernetes-dashboard에 sidecar 추가하기
+* sidecar 패턴?
+  * 사이드카 패턴은 원래 사용하려고 했던 기본 컨테이너의 기능을 확장하거나 보조하는 용도의 컨테이너를 추가하는 패턴
+  * ex. demon set - logging agent
 * kubernetes-dashboard의 deployment 설정에서 sidecar 추가
   ```sh
   # spec.template.spec.containers.args: - --sidecar-host=http://{dashboard-metrics-scraper-IP}:8000

@@ -109,7 +109,7 @@ sudo vi /etc/containerd/config.toml
 
 <br>
 
-## 5. containerd 서비스 재시작, 상태 췤
+## 5. containerd 서비스 재시작, 상태 체크
 ```sh
 # containerd 서비스 재시작
 sudo systemctl restart containerd.service

@@ -3,6 +3,7 @@
 * Ingress를 이용한 Service Load Balancing 방법
 * Ingress를 이용한 Canary 배포 방법
 * Ingress HTTPS 설정
+* `Todo`: 클라우드 서비스 이용하지 않는 경우 External IP 따로 뚫어주어야 함...
 
 <br>
 
