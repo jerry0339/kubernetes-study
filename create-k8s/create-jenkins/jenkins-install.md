@@ -40,7 +40,21 @@ systemctl status jenkins
 
 <br><br>
 
-## 3. Jenkins port 변경하기 (필요시)
+## 3. Jenkins 초기화
+* 아래 스크립트로 초기 패스워드 확인
+    ```sh
+    # Jenkins 초기 패스워드 확인
+    sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+    ```
+* 8080포트 열기
+* 이후 `http://도메인:8080` 으로 접속하여 Unlcok Jenkins, Install suggested plugins 수행
+* 계정 생성
+* Jenkins 인스턴스의 URL을 설정
+  * default로 port가 8080으로 되어 있는데, 포트를 바꾸고 싶다면 변경할 포트로 입력
+
+<br><br>
+
+## 4. Jenkins port 변경하기 (필요시)
 * default는 8080으로 접속 가능
 * 아래 스크립트로 jenkins.service vim 켜서 `Environment="JENKINS_PORT=8080"`의 8080포트를 변경 - ex. 18080 or 9090
     ```sh
@@ -57,22 +71,6 @@ systemctl status jenkins
     ```
 
 * 변경된 port를 open시켜주기 (Cloud 이용할 경우)
-
-<br><br>
-
-## 4. Jenkons 초기화
-* 아래 스크립트로 초기 패스워드 확인
-    ```sh
-    # Jenkins 초기 패스워드 확인
-    sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-    ```
-* 8080포트 열기
-* 이후 도메인:8080 으로 접속하여 Unlcok Jenkins, Install suggested plugins 수행
-* 계정 생성
-* Jenkins 인스턴스의 URL을 설정
-  * default로 port가 8080으로 되어 있는데, 포트를 바꾸고 싶다면 변경할 포트로 입력
-
-
 
 <br><br>
 
@@ -195,7 +193,7 @@ systemctl status jenkins
 <br>
 
 ### 7-4. Jenkins서버에 kube config파일 다운로드
-* config 다운로드 - jenkins user경로에 설치해야 하는지, 계정에 해당하는 user경로에 몰라서 둘 다 설치함
+* config 다운로드 - jenkins user경로에 설치하고, 계정에 해당하는 user경로에도 `모두 설치`해 주어야 함.
   * 계정에 해당하는 user경로에 설치하는 경우, 아래와 같이 `.kube` 디렉토리 하위에 config가 위치해야 `localhost:8080...` 에러가 안뜸
   ```sh
   # jenkins user가 kubectl 사용할 수 있도록 설정
@@ -220,15 +218,18 @@ systemctl status jenkins
 
 ## 8. Helm 설치
 * 3.13.2 버전 설치
-```sh
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-sudo apt-get install apt-transport-https --yes
+  ```sh
+  # 기본 유저로 설치, 아래에서 Jenkins 유저로 변환 후 확인
+  curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+  sudo apt-get install apt-transport-https --yes
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
 
-sudo apt-get update
-sudo apt-cache madison helm # 설치 가능한 버전 확인
-sudo apt-get install -y helm=3.13.2-1
-sudo su - jenkins -s /bin/bash # Jenkins로 유저 전환
-helm version # 설치 잘 되었는지 확인
-```
+  sudo apt-get update
+  sudo apt-cache madison helm # 설치 가능한 버전 확인
+  sudo apt-get install -y helm=3.13.2-1
+  sudo su - jenkins -s /bin/bash # Jenkins로 유저 전환
+  helm version # 설치 잘 되었는지 확인
+  ```
+* insecure 하다는 경고가 표시되는데, 무시
+  * ![](2025-03-29-19-56-16.png)
