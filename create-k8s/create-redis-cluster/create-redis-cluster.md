@@ -1,4 +1,4 @@
-# Redis Cluster 구축
+# Redis Cluster 구축 & 간단한 Redis Cluster 개념 정리
 * [참고 링크](https://jeongchul.tistory.com/725)
 * 목적
   * 빠른 응답을 위한 캐시 데이터 활용
@@ -140,7 +140,7 @@ kubectl exec -it redis-cluster-0 -n redis -- \
   * 따라서 해당하는 redis 노드의 pod로 다시 이동후 명령어 수행 가능함
   * ![](2025-03-28-02-37-18.png)
 
-<br>
+<br><br>
 
 ## 7. Spring 프로젝트에 적용
 
@@ -189,6 +189,8 @@ kubectl exec -it redis-cluster-0 -n redis -- \
   }
   ```
 
+<br>
+
 ### 7.2. AOP를 이용하여 분산락 컴포넌트를 생성
 * 자세한 동작 방식은 [해당 링크](https://helloworld.kurly.com/blog/distributed-redisson-lock/) 참고
 * 아래의 클래스 및 인터페이스 추가
@@ -199,7 +201,7 @@ kubectl exec -it redis-cluster-0 -n redis -- \
       String key(); // Lock의 이름 (고유값)
       TimeUnit timeUnit() default TimeUnit.SECONDS; // 시간 단위
       long waitTime() default 5L; // 락 획득을 위해 waitTime 만큼 대기
-      long leaseTime() default 3L; // 락을 획득한 이후 leaseTime 이 지나면 락을 해제
+      long leaseTime() default 3L; // 락을 획득한 이후 leaseTime 이 지나면 락을 해제, leaseTime은 처리 시간의 2~3배로 설정하는것이 좋음(락 중복 획득 방지)
   }
   ```
   ```java
@@ -279,3 +281,31 @@ kubectl exec -it redis-cluster-0 -n redis -- \
       coupon.decrease();
   }
   ```
+
+<br><br>
+
+## 8. Redis-cluster에서 분산락 동작 방식과 장단점 (Redlock과 비교)
+* `Lock 데이터 저장 방식`
+  * Redis Cluster는 16384개의 해시 슬롯으로 키를 샤딩
+  * Redisson의 RLock은 키 기반으로 생성되며, 키에 대한 lock데이터는 **하나의 마스터 노드**에 저장
+  * 슬레이브 Pod에는 비동기적으로 복제
+* `Lock 조회 메커니즘`
+  * Redisson은 초기 연결 시 클러스터의 슬롯 매핑 정보를 캐시하여, 코드에서 getLock(key) 호출시 키의 담당 마스터를 직접 찾아 요청
+  * 만약 캐시 정보가 오래된 경우 Redis 노드에서 MOVED 에러와 함께 올바른 노드 주소를 반환, 라우팅 테이블을 갱신
+  * master 노드에 조회 요청시 장애가 생길 경우 failover로 slave노드에 조회
+* `Redlock` 알고리즘?
+  * Redis-cluster의 구성(master-slave)과는 다르게, **Redlock 알고리즘은 독립적인 N개 Redis 인스턴스로 구성됨**
+  * 키 기반으로 단일 마스터에 저장되는 Redis-cluster와는 다르게, **Redlock에서의 락 획득 조건은 과반수(N/2+1) 이상 노드에서 성공**이 필요함
+* Redis-cluster vs Redlock
+  * 신뢰성: Redlock이 더 좋음
+    * cluster의 경우 slave로 데이터 비동기 복제로 인한 일시적 데이터 손실 가능성이 있음
+    * 반면, Redlock 구조에서는 과반수 노드 동의로 lock획득을 판단하기 때문에 더 높은 일관성을 가짐
+  * k8s환경에서의 접근성: Redis-cluster가 더 좋음
+    * Helm으로 쉽게 배포가 가능하며 자동화가 쉬움(headless service, scale in/out 등)
+    * Redlock으로 k8s환경에서 구성할 경우 구현이 복잡(독립적인 5개 이상 Redis 인스턴스 필요)하고, 
+      * Pod 간 통신 지연 가능성이 크므로 접근성이 좋지 않음
+      * 또한 Redlock 구성시, 메모리/CPU 소비도 크므로 비용이 더 큼
+  * 성능: Redis-cluster가 더 좋음
+    * redlock 알고리즘으로 구성시, 5개 이상의 노드에 lock 획득 요청을 병렬로 전송해야 하므로 노드마다 latency가 달라 오버헤드가 큼
+    * redlock은 N/2+1 노드에 응답 대기해야 하므로 지연이 상대적으로 큼 (특정 노드 장애 발생시 지연 확대)
+* 정리: 금융 거래 서비스처럼 극한의 신뢰성이 필요한게 아니라면, 기본 구성으로 Redis-cluster가 적절함
