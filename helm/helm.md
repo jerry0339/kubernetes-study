@@ -38,26 +38,40 @@ helm version # 설치 잘 되었는지 확인
   * .Chart 또는 .Values 명령어 작성하면 됨
   * ex. `{{ .Values.replicaCount }}`, `{{ .Chart.Name }}`
 * Helm Template에서 동적 데이터 작성 방법
-  * 예시 `{{- toYaml .Values.configmap.data.properties | nindent 2 }}`
+  * 예시1: `{{- toYaml .Values.configmap.data.properties | nindent 2 }}`
     * `{{}}` : 안에 동적 데이터에 대한 내용을 작성하면 해당하는 위치에 데이터가 작성됨
     * `-` : 데이터가 최종적으로 출력될때, 데이터 가장 앞의 여백이 모두 삭제되도록 해줌
-    * `toYaml` : Helm 템플릿에서 배열 같은 객체(예: 배열, 딕셔너리, 중첩된 데이터 구조 등)를 YAML 형식의 문자열로 변환
-    * `.Values.configmap.data.properties` : values.yaml 파일의 configmap.data.properties 데이터가 위치하게 됨
+    * `toYaml` : Helm 템플릿에서 복잡한 데이터 구조(ex. 배열, 딕셔너리, 중첩된 데이터 구조 등)를 YAML 형식의 문자열로 변환하고 들여쓰기를 포함한 적절한 형식으로 출력
+    * `.Values.configmap.data.properties` : values.yaml 파일(Values)의 configmap.data.properties 데이터를 참조(맨 앞의 `.`)
     * `nindent 2` : 데이터 출력될때, 데이터 가장 앞에 공백 2개를 추가해 줌
     * `{{- toYaml .Values.configmap.data.properties | nindent 2 }}`라는 데이터는 아래와 같이 두줄로 변경될 수 있음
+      ```yaml
+      # values.yaml의 아래의 데이터가
+      configmap:
+        data:
+          properties:
+            key1: value1
+            key2: value2
+      ```
+      ```yaml
+      # 아래와 같이 변경되어 {{- toYaml .Values.configmap.data.properties | nindent 2 }} 위치에 추가됨, 공백 2칸 확인
+        key1: value1
+        key2: value2
+      ```
+  * 예시2
     ```yaml
-    # values.yaml의 아래의 데이터가
-    configmap:
-      data:
-        properties:
-          key1: value1
-          key2: value2
+    {{- with .Values.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
     ```
-    ```yaml
-    # 아래와 같이 변경되어 {{- toYaml .Values.configmap.data.properties | nindent 2 }} 위치에 추가됨, 공백 2칸 확인
-      key1: value1
-      key2: value2
-    ```
+    * `{{- with .Values.nodeSelector }}`: with블록 - values.yaml의 nodeSelector에 값이 있을 경우에, nodeSelector에 그 값이 들어감
+    * `{{- toYaml . | nindent 8 }}`
+      * `-`: 데이터 앞의 공백 제거
+      * `toYaml`: 데이터를 YAML 형식으로 변환
+      * `.`: 해당하는 데이터 참조(Values.nodeSelector에 해당)
+      * `nindent 8`: 데이터 가장 앞에 공백 8칸 생성
+    * `{{- end }}`: with 블록을 종료
 
 <br>
 
