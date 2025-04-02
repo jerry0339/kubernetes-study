@@ -30,7 +30,7 @@ kubectl create namespace argocd
     EOF
 
     # helm으로 설치
-    helm install argocd argo/argo-cd --namespace argocd
+    helm install argocd argo/argo-cd -f argocd-values.yaml -n argocd
     ```
 * ingress 컨트롤러 배포된 경우, LoadBalancer type으로 설치
     ```sh
@@ -44,7 +44,7 @@ kubectl create namespace argocd
     EOF
 
     # helm으로 설치
-    helm install argocd argo/argo-cd -f argocd-values.yaml --namespace argocd
+    helm install argocd argo/argo-cd -f argocd-values.yaml -n argocd
     ```
 
 <br><br>
