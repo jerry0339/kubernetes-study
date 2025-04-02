@@ -233,3 +233,54 @@ systemctl status jenkins
   ```
 * insecure 하다는 경고가 표시되는데, 무시
   * ![](2025-03-29-19-56-16.png)
+
+## 9. Jenkins Credentials 설정
+* 아래 내용 적용시 위 내용의 `6에서의 Docker 사용 설정`과 `7에서의 vm에 kubeconfig 저장`을 하지 않아도 Jenkins Credentials을 이용하여 k8s에 배포가 가능
+
+### 9.1. Docker Hub 계정 및 k8s Config Credential 등록
+* 젠킨스 관리 - Security의 Credentials - System - Global credentials (unrestricted) - Add Credentials
+* ![](2025-04-01-02-10-33.png)
+
+<br>
+
+* 이후 아래와 같이 Docker Hub 계정 정보 등록
+  * ID의 경우 해당 Credential의 ID로 Jenkinsfile에서 사용할 예정 (docker_password)
+* ![](2025-04-01-02-11-17.png)
+
+<br>
+
+* k8s config 정보도 등록
+* ![](2025-04-01-02-14-29.png)
+
+### 9.2. 6과 7에서 저장한 민감 정보 삭제
+* `sudo su - jenkins -s /bin/bash`
+* docker login설정을 logout하고,
+  * `docker logout`이후 `cat ~/.docker/config.json` 명령어로 확인
+  * cf. 다시 로그인 필요시 `docker login -u jerry0339`
+* `.kube/config`경로에 저장된 config파일을 삭제 해도 Jenkins를 통해 배포할 수 있음
+  * `mv ~/.kube/config ~/.kube/config-temp` 로 테스트
+  * cf. `mv ~/.kube/config-temp ~/.kube/config` 로 복구
+
+### 9.3. Jenkinsfile에서 Credential 사용 예시
+```groovy
+// Docker 사용
+steps {
+  script{
+    // 위에서 등록한 Docker Hub 계정 정보 Credential에 대응됨
+    withCredentials([usernamePassword(credentialsId: 'docker_password', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+      sh "echo " + '${PASSWORD}' + " | docker login -u " + '${USERNAME}' + " --password-stdin"
+    }
+    // ...
+  }
+
+// Kubernetes config 사용
+steps {
+  // 위에서 등록한 k8s config 파일 정보 Credential에 대응됨
+  withCredentials([file(credentialsId: 'k8s_master_config', variable: 'KUBECONFIG')]) { 
+    // --kubeconfig 적용시 default적용된 config파일 대신 ${KUBECONFIG}를 쓰겠다는 뜻. KUBECONFIG에는 위에서 등록한 암호화된 config파일 내용이 들어감
+    sh "kubectl apply -f ./2224/deploy/kubectl/namespace-dev.yaml --kubeconfig " + '${KUBECONFIG}' 
+    sh "helm upgrade api-tester-2224 ./2224/deploy/helm/api-tester -f ./2224/deploy/helm/api-tester/values-dev.yaml" +
+        " -n anotherclass-222-dev --install --kubeconfig " + '${KUBECONFIG}'
+  }
+}
+```
