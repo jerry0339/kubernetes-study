@@ -75,13 +75,14 @@ helm version # 설치 잘 되었는지 확인
 
 <br>
 
-## Helm 기본 명령어
+## Helm 기본 명령어 정리
 * `helm install {배포명} {패키지경로} -n {네임스페이스명}`
   * Helm 차트를 설치하고 Kubernetes 클러스터에 리소스를 배포
 * `helm template {배포명} {패키지경로} -n {네임스페이스명} --create-namespace`
   * Helm 차트를 기반으로 Kubernetes 설정 파일 내용을 출력
     * 해당하는 배포명 가진 설정 파일들 모두 출력
   * `--create-namespace 옵션`: 명령어에 해당하는 namespace가 없으면 생성해 줌
+    * `helm upgrade` 명령어와 같이 안쓰는게 좋음. `kubectl apply ... --create-namespace` 먼저 적용 후 helm upgrade로 배포하면 됨
   * ex. helm template api-tester-2221 ./2221/deploy/helm/4.addition/api-tester -n anotherclass-222 --create-namespace
 * `helm upgrade {배포명} {패키지경로} -n {네임스페이스명} --create-namespace --install`
   * 해당하는 경로에, 기존에 배포된 내용들을 업데이트하거나 새로운 버전의 차트를 적용
@@ -95,3 +96,23 @@ helm version # 설치 잘 되었는지 확인
   * Helm으로 생성된 Kubernetes 리소스들을 모두 삭제함
   * **네임스페이스는 지워지지 않고 유지됨**
     * 네임스페이스가 지워지면 해당하는 네임스페이스로 지정된 모든 리소스가 삭제되기 때문
+* `-f` 와 `--set` 쓰임새
+  * 아래 스크립트는 `helm template {배포명} {패키지경로} -n {네임스페이스명} -f {적용할파일}` 에 해당
+    * `-f`: 저장된 파일로 적용할때 사용
+    ```sh
+    helm template api-tester-${CLASS_NUM} ./${CLASS_NUM}/deploy/helm/api-tester \   
+      -n anotherclass-222-${params.PROFILE} \ 
+      -f ./${CLASS_NUM}/deploy/helm/api-tester/values-${params.PROFILE}.yaml
+    # --set replicaCount='3' --set port='80' --set profile='dev' --set nodeport='32223'
+    ```
+    * ![](2025-04-01-01-55-00.png)
+    * 위의 values 파일이 파라미터로 결정되고 해당 파일로 적용됨
+  * `--set`: 동적으로 값 넣을때 사용할 수 있음
+    * 아래 스크립트에서 `-f`를 통해 해당하는 values 파일이 적용되지만, `--set`이 있으면 해당 설정 값이 최종적으로 적용됨
+    * 즉, values-dev.yaml 적용으로 values-dev.yaml의 replicaCount값이 1이어도 --set에 의해 3으로 세팅되는 것임
+    ```sh
+    helm template api-tester-${CLASS_NUM} ./${CLASS_NUM}/deploy/helm/api-tester \   
+      -n anotherclass-222-${params.PROFILE} \ 
+      -f ./${CLASS_NUM}/deploy/helm/api-tester/values-${params.PROFILE}.yaml \
+      --set replicaCount='3' --set port='80' --set profile='dev' --set nodeport='32223'
+    ```
