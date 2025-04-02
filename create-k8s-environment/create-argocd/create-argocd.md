@@ -19,57 +19,46 @@ kubectl create namespace argocd
 <br><br>
 
 ## 3. ArgoCD 설치
-* 그냥 설치 - ingress 컨트롤러 배포 안된 경우, 4번에서 NodePort 설정
-    ```sh
-    helm install argocd argo/argo-cd --namespace argocd
-    ```
-* ingress 컨트롤러 배포된 경우, LoadBalancer type의 커스텀 설정 추가
+* NodePort type으로 설치
     ```sh
     # values.yaml 파일 생성
     cat > argocd-values.yaml <<EOF
     server:
-    service:
+      service:
+        type: NodePort
+        nodePortHttps: 32000
+    EOF
+
+    # helm으로 설치
+    helm install argocd argo/argo-cd --namespace argocd
+    ```
+* ingress 컨트롤러 배포된 경우, LoadBalancer type으로 설치
+    ```sh
+    # values.yaml 파일 생성
+    cat > argocd-values.yaml <<EOF
+    server:
+      service:
         type: LoadBalancer
-    ingress:
+      ingress:
         enabled: true
     EOF
 
+    # helm으로 설치
     helm install argocd argo/argo-cd -f argocd-values.yaml --namespace argocd
     ```
 
 <br><br>
 
-## 4. argocd-server 서비스 포트 변경 
-
-### 4.1. NodePort type 으로 변경 (ingress 컨트롤러 배포 안된 경우)
-```sh
-kubectl patch svc argocd-server -n argocd -p '{
-"spec": {
-    "type": "NodePort",
-    "ports": [
-    {
-        "port": 443,
-        "targetPort": 8080,
-        "nodePort": 32000
-    }
-    ]
-}
-}'
-# 변경 내용 확인
-kubectl get svc argocd-server -n argocd
-```
-
-<br>
-
-### 4.2. LoadBalancer type 으로 변경 (ingress 컨트롤러가 배포되어 있어야 함)
-* 3에서 그냥 설치하고 LoadBalancer type 으로 변경하고자 하는 경우
+## 4. LoadBalancer type 으로 변경
+* ingress 컨트롤러가 배포되어 있어야 함
+* 3에서 NodePort로 설치하고나서 LoadBalancer type 으로 변경하고자 하는 경우
     ```sh
     # values.yaml 파일 생성
     cat > argocd-values.yaml <<EOF
     server:
-    service:
+      service:
         type: LoadBalancer
-    ingress:
+      ingress:
         enabled: true
     EOF
 
@@ -89,7 +78,7 @@ kubectl get svc argocd-server -n argocd
     ```sh
     # 대시보드 초기 비밀번호 조회
     kubectl -n argocd get secret argocd-initial-admin-secret \
-    -o jsonpath="{.data.password}" | base64 -d; echo
+      -o jsonpath="{.data.password}" | base64 -d; echo
     ```
 * ID는 admin으로, 위에서 조회한 비밀번호를 입력하고 로그인
 * ![](2025-04-03-00-38-29.png)
