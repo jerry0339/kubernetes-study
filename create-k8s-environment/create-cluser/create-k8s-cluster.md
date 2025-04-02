@@ -1,4 +1,5 @@
-# k8s 설치 과정
+# cloud service 이용하여 kubernetes 설치
+* GCP 이용함
 * [참고한 블로그 링크 1](https://jongsky.tistory.com/112)
 * [참고한 블로그 링크 2](https://jbground.tistory.com/107)
 * [참고한 공식 문서 k8s 1.30](https://v1-30.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
