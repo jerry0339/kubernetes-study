@@ -19,6 +19,9 @@ kubectl create namespace argocd
 <br><br>
 
 ## 3. ArgoCD 설치
+* argocd-server 파드에 접근하기 위한 설정이 필요함
+  * argocd-server 파드는 apiserver 역할을 하는 파드
+  * ingress 컨트롤러가 있다면 LoadBalancer type으로, 없다면 NodePort type으로 설치하면 됨
 * NodePort type으로 설치
     ```sh
     # values.yaml 파일 생성
