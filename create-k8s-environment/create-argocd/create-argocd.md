@@ -86,3 +86,73 @@ kubectl create namespace argocd
 * ID는 admin으로, 위에서 조회한 비밀번호를 입력하고 로그인
 * ![](2025-04-03-00-38-29.png)
 
+<br><br>
+
+## 6. ArgoCD Image Updater 추가 설치
+* 컨테이너 이미지 변경 감지 및 자동 배포를 하기 위해 ArgoCD Image Updater를 설치하고 적용하는 과정
+
+### 6.1. ArgoCD Image Updater 설치
+```sh
+# 설치
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+
+# argocd-image-updater 파드 확인
+kubectl get pods -n argocd
+```
+
+<br>
+
+### 6.2. Docker Hub 접속 설정
+* 계정정보 Secret 생성후 환경 변수 참조
+  ```sh
+  # Docker Hub 접속 설정 위한 Secret 생성
+  # username과 password 입력
+  kubectl create secret generic dockerhub-creds \
+    --from-literal=username="username입력" \
+    --from-literal=password="password입력" \
+    -n argocd
+
+  # 환경 변수에서 Secret 참조 (아래 내용 그대로 입력)
+  kubectl set env deployment argocd-image-updater \
+    -n argocd \
+    DOCKER_HUB_CREDS='$(username):$(password)' \
+    --from=secret/dockerhub-creds
+  ```
+
+<br>
+
+* argocd-image-updater-config 컨피그맵에 아래의 `data:` 설정 정보 추가
+  ```sh
+  kubectl edit configmap argocd-image-updater-config -n argocd
+  ```
+  ```yaml
+  data:
+    registries.conf: |
+      registries:
+      - name: Docker Hub
+        prefix: docker.io
+        api_url: https://registry-1.docker.io
+        credentials: env:DOCKER_HUB_CREDS
+        defaultns: library
+        default: true
+  ```
+* 예시
+  * ![](2025-04-05-05-39-04.png)
+
+<br>
+
+* 수정 후, Image Updater 파드를 재시작 하고 잘 적용되었는지 확인
+  ```sh
+  # Image Updater 파드 재시작
+  kubectl rollout restart deployment argocd-image-updater -n argocd
+
+  # Docker Hub 자격 증명을 저장한 Secret 확인
+  kubectl get secret dockerhub-creds -n argocd -o yaml
+  ```
+* ![](2025-04-05-05-37-36.png)
+
+<br><br>
+
+## 7. Argo Rollouts 추가 설치
+```sh
+```
