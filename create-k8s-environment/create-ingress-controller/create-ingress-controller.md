@@ -111,3 +111,8 @@
     kubectl get svc -n ingress-nginx
     ```
 * ![](2025-04-04-22-47-50.png)
+
+<br><br>
+
+## 5. Ingress 배포하기
+* 
