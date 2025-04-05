@@ -83,29 +83,78 @@
 
 <br><br>
 
-## 4. ArgoCD를 사용하면 좋은점?
-* ArgoCD는 배포할때 쓰는 툴이고, 배포를 해야하는 상황은 2가지가 있음
+## 4. ArgoCD를 사용하면 좋은점? - Image Updater, Rollouts
+* k8s 리소스 관리하기 편함 - 깔끔하고 직관적인 UI와 Git을 이용한 Sync기능
+* ArgoCD Image Updater 이용한 변경 감지 및 자동 배포
+* ArgoCD Rollouts 이용한 고급 배포 지원 - Blue/Green , Canary
+
+<br>
+
+### 4.1. k8s환경에서 배포할때 왜 ArgoCD가 필요할까? (ArgoCD Image Updater)
+* k8s환경에서 배포를 해야하는 상황은 2가지가 있음
   1. 리소스 스펙 변경
   2. App 버전 업데이트 (이미지 변경)
 * ArgoCD 없을때 CD 환경
   * 리소스 스펙 변경
     * ArgoCD가 없는 환경에서는 yaml파일 수정후 커밋하고,
-    * Jenkins에서 배포 Job 실행하여 변경된 k8s 리소스들 업데이트
+    * Jenkins에서 배포 파이프라인 실행하여 변경할 k8s 리소스들을 업데이트
+      * 파이프라인에서 변경된 Helm 차트를 패키징하고 푸시, 업데이트하는 복잡한 과정이 필요함
   * App 버전 업데이트 (이미지 변경)
-    * ArgoCD가 없는 환경에서는 App의 변경된 내용 푸시, Jenkins 배포 Job에서 이미지 빌드후 hub에 업로드하고,
-    * helm을 사용하는 경우, `1.리소스 스펙 변경`에서처럼 변경할 필요 없이 helm upgrade ... --set 명령어로 배포 자동화
+    * ArgoCD가 없는 환경에서는 App의 변경된 내용 푸시, Jenkins 배포 파이프라인으로 이미지 빌드후 registry에 업로드
+    * 이후 k8s 리소스의 이미지 변경은 `helm upgrade ... --set` 명령어로 배포 자동화 가능 (helm 필요)
+  * 자동화가 가능하긴 하지만 ArgoCD를 사용할때와 비교하면 다소 복잡함
   * ![](2025-04-04-03-05-54.png)
 * ArgoCD를 사용하면?
   * 리소스 스펙 변경
-    * 변경된 yaml파일들 git에 푸시하면 ArgoCD가 변경 감지하여 자동 배포
-  * App 버전 업데이트시
-    * App의 변경된 내용 푸시, Jenkins 배포 Job에서 이미지 빌드후 hub에 업로드
-    * ArgoCD Image Updater가 hub의 이미지 업데이트를 감지하고 자동 배포 (단, helm을 사용해야 함)
+    * Git 레포에 선언된 리소스들의 상태(Manifest)와 Kubernetes 클러스터의 실제 상태를 동기화하는 작업을 수행
+    * 변경할 리소스들 git에 푸시하면 ArgoCD가 변경 감지하여 자동 배포해줌
+  * App 버전 업데이트시 (이미지 변경시)
+    * App의 변경된 내용 푸시, Jenkins 배포 Job에서 이미지 빌드후 registry에 업로드
+    * App에 추가한 Annotaions 설정에 따라, ArgoCD Image Updater가 registry에 새로 업로드된 이미지를 감지하고 자동 배포
+  * 이미지 빌드(CI)만 다른 도구로 실행하면, 배포에 관련된 내용들은 ArgoCD를 통해 쉽게 자동화 가능
   * ![](2025-04-04-03-23-07.png)
 
-<br><br>
+<br>
 
-## 5. ArgoCD Image Updater 이용한 이미지 자동 배포
-* helm을 사용해야 함
-  * `helm upgrade ... --set` 명령어를 내부적으로 사용하기 때문
-* `todo`
+### 4.2. ArgoCD Image Updater이용한 이미지 자동 배포 설정 방법
+* 배포할 내용의 설정 파일들은 helm을 사용하여 작성해야 함 (또는 kustomize)
+  * 배포시 `helm upgrade ... --set` 명령어를 내부적으로 사용하기 때문
+* ArgoCD 설치와 별개로 ArgoCD Image Updater를 따로 설치하고 registry관련 설정도 추가해 주어야 함
+  * [해당 문서 참고](/create-k8s-environment/create-argocd/create-argocd.md)
+* ArgoCD App의 Sync Policy를 Auto로 설정하고 App에 Annotaion들을 추가해 주면,
+  * ArgoCD Image Updater가 지속적으로 이미지의 새 버전을 확인하여 App에 해당하는 리소스의 이미지를 배포 (deployment, replicaSet, pod...)
+  * ArgoCD Image Updater가 확인하는 이미지들의 조건은 argocd-image-updater-config 컨피그맵의 registry설정과 App에 등록한 Annotaion을 따름
+  * ![](2025-04-06-00-31-01.png)
+  * ![](2025-04-06-00-31-42.png)
+* Annotation 예시
+  * `argocd-image-updater.argoproj.io/image-list`: 업데이트 대상 이미지를 지정함, `{alias}={image_path}` 형식임
+    * `argocd-image-updater.argoproj.io/image-list = jerry0339-api-tester=jerry0339/api-tester` 의 annotation인 경우
+    * jerry0339-api-tester: 이미지의 별칭(alias)으로 이후의 annotation에서 참조
+    * jerry0339/api-tester: 실제 이미지 경로 (cf. registry 설정으로 credentials정보와 docker.io/가 생략되어 있는 것)
+  * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags`: 특정 태그 패턴에 해당하는 이미지만 업데이트 대상으로 지정
+    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags = regexp:^1.1.2-[0-9]{6}.[0-9]{6}$` 의 경우
+    * jerry0339-api-tester는 앞서 설정한 alias에 해당
+    * regexp:^1.1.2-[0-9]{6}.[0-9]{6}$: 해당 regex 패턴에 해당하는 태그를 가진 이미지만 업데이트 대상임
+    * ex. 1.1.2-20250406.123456
+  * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy`: 이미지 업데이트 전략을 정의
+    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy = alphabetical` 의 경우
+    * jerry0339-api-tester는 앞서 설정한 alias에 해당
+    * 이미지 업데이트 전략
+      1. `alphabetical` (`name`에서 변경됨)
+         * 알파벳순으로 정렬된 목록의 마지막 태그로 업데이트
+         * 날짜 기반 또는 정렬 가능한 태그일 경우 사용
+         * ex. 1.1.2-alpha, 1.1.2-beta, 1.1.2-release라면, 알파벳 순서로 가장 높은 값인 release가 선택됨
+      2. `semver`
+         * 주어진 이미지 제약 조건에 따라 허용되는 가장 높은 버전으로 업데이트
+         * 태그가 Semantic Versioning 규칙(X.Y.Z)을 따르는 경우에 사용함
+         * ex. 태그가 1.0.0, 1.1.0, 2.0.0일 때, 2.0.0이 선택됨
+      3. `newest-build` (`latest`에서 변경됨)
+         * 가장 최근에 생성된 이미지 태그로 업데이트
+         * 최신 빌드된 이미지를 항상 사용하고자 할 때 사용
+      4. `digest`
+         * 특정 태그의 SHA256 해시 다이제스트를 기반으로 가장 최근에 푸시된 이미지를 선택?? (필요할때 찾아봐야 할듯)
+         * CI 시스템에서 동일한 태그 이름으로 새로운 이미지를 반복적으로 푸시할 때 유용하다고 함
+  
+<br>
+
+### 4.2.
