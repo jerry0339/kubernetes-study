@@ -1,4 +1,5 @@
 # Section 3
+* [gcp 이용하여 k8s 환경 구축](/create-k8s-environment/)
 * k8s Cluster 설치하기 (`v1.27`)
 
 ## k8s & Docker 버전

@@ -16,9 +16,9 @@
   kubectl patch {타입} -n {네임스페이스} {리소스이름} -p '{"spec" : {"suspend" : false }}' # -p옵션으로 JSON 또는 YAML 형식으로 전달된 패치를 적용
   kubectl edit {타입} -n {네임스페이스} {리소스이름} # 리소스 설정 정보 수정
 
-  kubectl logs -n {네임스페이스} {파드 이름} # 로그 확인
-  kubectl logs -n {네임스페이스} -f {파드 이름} # 실시간 로그
-  kubectl logs {파드 이름} -c {컨테이너 이름} -n {네임스페이스} # 하나의 Pod에 여러개 컨테이너 있는 경우
+  kubectl logs -n {네임스페이스} {파드이름} # 로그 확인
+  kubectl logs -n {네임스페이스} -f {파드이름} # 실시간 로그
+  kubectl logs {파드이름} -c {컨테이너 이름} -n {네임스페이스} # 하나의 Pod에 여러개 컨테이너 있는 경우
 
   kubectl get {타입} -n {네임스페이스} --show-labels # 라벨 확인하기
   kubectl label {타입} -n {네임스페이스} {리소스이름} key=value # key=value 라벨 붙이기
@@ -27,10 +27,11 @@
   kubectl taint nodes k8s-node1 {key}={value}:{effect} # 노드 taint 설정, effect는 `NoSchedule` or `NoExecute`
   kubectl taint nodes k8s-node1 hw=gpu:NoSchedule- # Taint 삭제는 끝에 `-`만 붙이면 됨
 
-  kubectl exec {파드 이름} -it /bin/bash # 해당하는 파드에 접속, exit로 나올 수 있음
-  nslookup {도메인 이름} # DNS record를 조회할 수 있는 커맨드, k8s 클러스터 내의 오브젝트의 도메인도 검색 가능, ip를 확인할 수 있음
+  kubectl exec {파드이름} -it -n {네임스페이스} /bin/bash # 해당하는 파드에 접속, exit로 나올 수 있음
+  nslookup {도메인} # DNS record를 조회할 수 있는 커맨드, k8s 클러스터 내의 오브젝트의 도메인도 검색 가능, ip를 확인할 수 있음
   ~~~
 
+<br>
 
 ## symbolic link를 이용하여 kubectl명령 줄이기
 * kubectl이 어디에 있는지 확인
@@ -40,4 +41,19 @@
   * `sudo ln -s /usr/bin/kubectl /usr/local/bin/k`
 * 심볼릭 링크 확인
   * `ls -al /usr/local/bin`
-  * ![](2024-12-09-17-02-27.png)
+
+<br>
+
+## curl 이미지 이용하여 임시 Pod에서 curl 테스트
+```bash
+kubectl run mycurlpod --image=curlimages/curl -i --tty -- sh
+
+# 해당 pod에서 테스트 하기
+$curl [테스트할 주소]
+
+# 이후 해당 pod 들어가기
+kubectl exec -it mycurlpod -- sh
+
+# pod 삭제하기
+kubectl delete pod mycurlpod
+```
