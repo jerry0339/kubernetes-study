@@ -1,4 +1,4 @@
-# Ubuntu에 Jenkins 설치 및 기본 setting
+# Ubuntu에 Jenkins 설치 및 CI환경 세팅을 위한 기본 설정
 * k8s환경에서 배포에 필요한 내용들 모두 포함
   * Java 설치부터 Helm 설치까지
 
@@ -112,6 +112,7 @@ systemctl status jenkins
 <br><br>
 
 ## 6. Docker설치 및 Jenkins의 Docker 사용 설정
+* **Jenkins Credentials 설정시 Jenkins의 Docker 설치만 진행**
 * Docker 설치
     ```sh
     sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -138,6 +139,8 @@ systemctl status jenkins
 > jenkins가 설치된 서버에서, 다른 서버에 설치된 k8s cluster의 API서버에 접근하기 위한 과정임
 > 
 > **AWS의 S3**나 다른 방법으로 `kubeconfig`파일을 업로드하고 다운로드해도 됨, 아래의 내용은 **GCP의 Cloud Storage**를 이용함
+* ArgoCD 사용시 Jenkins에서 kubectl를 사용할 일이 없으므로 `7.kubectl 설치는 할 필요 없음`
+* kubectl 필요할 경우, **Jenkins Credentials 설정시 kubectl 설치만 진행**
 
 <br>
 
@@ -231,7 +234,7 @@ systemctl status jenkins
   sudo su - jenkins -s /bin/bash # Jenkins로 유저 전환
   helm version # 설치 잘 되었는지 확인
   ```
-* insecure 하다는 경고가 표시되는데, 무시
+* `.kube/config`파일을 업로드한 경우 insecure 하다는 경고가 표시되는데, 무시
   * ![](2025-03-29-19-56-16.png)
 
 ## 9. Jenkins Credentials 설정
