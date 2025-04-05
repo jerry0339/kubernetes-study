@@ -103,25 +103,22 @@ kubectl get pods -n argocd
 <br>
 
 ### 6.2. Docker Hub 접속 설정
-* 계정정보 Secret 생성후 환경 변수 참조
+* Secret 생성 - regcred 이름으로 생성함
   ```sh
-  # Docker Hub 접속 설정 위한 Secret 생성
-  # username과 password 입력
-  kubectl create secret generic dockerhub-creds \
-    --from-literal=username="username입력" \
-    --from-literal=password="password입력" \
+  kubectl create secret docker-registry regcred \
+    --docker-server=https://index.docker.io/v1/ \
+    --docker-username='DOCKER_USERNAME' \
+    --docker-password='DOCKER_PASSWORD' \
+    --docker-email='EMAIL' \
     -n argocd
-
-  # 환경 변수에서 Secret 참조 (아래 내용 그대로 입력)
-  kubectl set env deployment argocd-image-updater \
-    -n argocd \
-    DOCKER_HUB_CREDS='$(username):$(password)' \
-    --from=secret/dockerhub-creds
   ```
-
-<br>
-
-* argocd-image-updater-config 컨피그맵에 아래의 `data:` 설정 정보 추가
+* Secret 생성 후, Docker Hub Secret 확인
+  ```sh
+  # Secret 확인
+  kubectl get secret regcred -n argocd -o yaml
+  ```
+  * ![](2025-04-05-19-41-20.png)
+* argocd-image-updater-config 컨피그맵에 아래의 registry 설정 정보 추가 (Docker Hub로 사용)
   ```sh
   kubectl edit configmap argocd-image-updater-config -n argocd
   ```
@@ -129,30 +126,42 @@ kubectl get pods -n argocd
   data:
     registries.conf: |
       registries:
-      - name: Docker Hub
-        prefix: docker.io
-        api_url: https://registry-1.docker.io
-        credentials: env:DOCKER_HUB_CREDS
-        defaultns: library
-        default: true
+        - name: Docker Hub
+          prefix: docker.io
+          api_url: https://index.docker.io/v1/
+          credentials: pullsecret:argocd/regcred
+          defaultns: library
+          default: true
   ```
 * 예시
-  * ![](2025-04-05-05-39-04.png)
+  * ![](2025-04-05-19-40-01.png)
+* argocd-image-updater-config 컨피그맵의 data에 추가한 registry 설정 설명
+  * `name: Docker Hub`: 레지스트리 이름
+  * `prefix: docker.io`: 이미지의 레지스트리를 식별하는 접두사 (Docker Hub 이미지는 docker.io 접두사 사용)
+  * `api_url: https://index.docker.io/v1/`: 레지스트리의 API 서버 주소 (Docker hub의 API 주소에 해당)
+  * `credentials: pullsecret:argocd/regcred`: 해당 레지스트리의 인증 정보 (Docker Hub의 계정 정보에 해당)
+  * `defaultns: library`: 네임스페이스 생략시, library라는 네임스페이스를 기본으로 사용 (Docker Hub의 경우, 사용자명이 없으면 기본으로 library를 사용 ex. library/nginx:latest)
+  * `default: true`: 해당 레지스트리(Docker Hub)를 기본 레지스트리로 설정 (prefix인 `docker.io` 생략 가능)
+* annotation 설정에서 prefix를 통해 argocd-image-updater-config 컨피그맵에 등록한 registry 정보를 참조할 수 있고, 위처럼 registry 정보에 등록된 내용은 annotaion에서 생략 가능
+  * ex. ArgoCD에 등록된 App에 `argocd-image-updater.argoproj.io/image-list: jerry0339/api-tester`와 같은 annotaion을 추가한 경우
+    * credentials 정보를 입력해 주지 않고 registry prefix를 지정해 주지 않아도,
+    * argocd-image-updater-config 컨피그맵의 registry 설정에서 `default: true` 설정으로 `prefix: docker.io`를 사용하고 `credentials` 정보가 들어가 있기 때문에
+    * 이미지 지정시 `docker.io/jerry0339/api-tester`와 같이 지정하지 않아도 되는 것이며
+    * credentials을 참조하기 위해 `argocd-image-updater.argoproj.io/pullsecret: argocd/regcred`와 같은 annotation을 추가해 주지 않아도 되는 것임
 
 <br>
 
-* 수정 후, Image Updater 파드를 재시작 하고 잘 적용되었는지 확인
-  ```sh
-  # Image Updater 파드 재시작
-  kubectl rollout restart deployment argocd-image-updater -n argocd
-
-  # Docker Hub 자격 증명을 저장한 Secret 확인
-  kubectl get secret dockerhub-creds -n argocd -o yaml
-  ```
-* ![](2025-04-05-05-37-36.png)
+* cf. ArgoCD Image Updater 삭제하고 싶은 경우
+  * kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+* cf. argocd-image-updater 이용한 이미지 자동 배포
+  * [argocd 문서 참고](/CICD/cd-argocd/argocd.md)
 
 <br><br>
 
 ## 7. Argo Rollouts 추가 설치
 ```sh
 ```
+
+
+
+
