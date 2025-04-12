@@ -5,6 +5,8 @@
 ### git 설치
 * git은 보통 설치되어 있음
 * 되어 있지 않다면, `sudo apt install git` 설치 후 `git --version` 확인
+* git 2.34 이상 버전 사용
+  * 2.2x 버전에서 jar파일 빌드시 에러 생김
 
 <br><br>
 
@@ -112,7 +114,8 @@ systemctl status jenkins
 <br><br>
 
 ## 6. Docker설치 및 Jenkins의 Docker 사용 설정
-* **Jenkins Credentials 설정시 Jenkins의 Docker 설치만 진행**
+* **Jenkins Credentials 설정으로 Docker Hub 계정 등록을 하더라도 권한 부여 명령어까지 모두 실행해야 함**
+  * `sudo usermod -aG docker jenkins`까지 실행
 * Docker 설치
     ```sh
     sudo apt-get install apt-transport-https ca-certificates curl gnupg-agent software-properties-common

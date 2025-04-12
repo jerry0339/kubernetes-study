@@ -1,22 +1,39 @@
 # Helm
 * 참고 : https://github.com/k8s-1pro/kubernetes-anotherclass-sprint2
 
-## helm 설치
+## helm 설치 (ubuntu)
 * `k8s 1.30` 버전과 호환이 잘 되는 helm 버전은 `helm 3.15.x`
 * 3.15.4 버전 설치
-```sh
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-sudo apt-get install apt-transport-https --yes
+  ```sh
+  curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+  sudo apt-get install apt-transport-https --yes
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
 
-sudo apt-get update
-sudo apt-cache madison helm # 설치 가능한 버전 확인
-sudo apt-get install -y helm=3.15.4-1
-helm version # 설치 잘 되었는지 확인
-```
+  sudo apt-get update
+  sudo apt-cache madison helm # 설치 가능한 버전 확인
+  sudo apt-get install -y helm=3.15.4-1
+  helm version # 설치 잘 되었는지 확인
+  ```
 
-<br>
+<br><br>
+
+## helm 설치 (window 환경)
+* **Chocolatey 사용함**
+* PowerShell을 관리자 권한으로 실행
+  ```sh
+  choco install kubernetes-helm
+  helm version
+  ```
+
+<br><br>
+
+## helm 초기화 및 업로드
+* Helm을 Local환경에 설치를 했다면, `helm create {chart-name}` 명령어를 이용하여 Helm Chart 생성
+* create 명령어를 수행한 path를 기준으로 하므로, vscode나 intellij에서 작업하고
+* manifest Repo에 바로 push 하면 편함
+
+<br><br>
 
 ## Helm 패키지 간단 설명
 * ![](2025-02-04-16-55-28.png)
@@ -28,7 +45,7 @@ helm version # 설치 잘 되었는지 확인
   * 아래는 `api-tester.fullname`에 어떤 내용이 들어갈지 정의해 놓은 스크립트임
   * ![](2025-03-31-01-42-01.png)
 
-<br>
+<br><br>
 
 ## Helm Template 사용법 간단한 설명
 * `helper.tpl`에 들어가는 내용은 yaml파일에 모두 적용 가능함
@@ -74,7 +91,7 @@ helm version # 설치 잘 되었는지 확인
       * `nindent 8`: 데이터 가장 앞에 공백 8칸 생성
     * `{{- end }}`: with 블록을 종료
 
-<br>
+<br><br>
 
 ## Helm 기본 명령어 정리
 * `helm install {배포명} {패키지경로} -n {네임스페이스명}`

@@ -40,7 +40,6 @@
 ## 3. Rook-Ceph 설치 파일 다운로드
 * Rook git 저장소 clone
     ```sh
-    git clone --single-branch --branch v1.11.10 https://github.com/rook/rook.git
     git clone --single-branch --branch release-1.12 https://github.com/rook/rook.git
     cd rook/deploy/examples
     ```
@@ -72,8 +71,8 @@ kubectl apply -f operator.yaml
   # cluster.yaml 수정
   spec:
     storage:
-      useAllNodes: false # default: true
-      useAllDevices: false # default: true
+      useAllNodes: false # default: true - 사용할 노드 지정시 false
+      useAllDevices: false # default: true - 사용할 디스크 지정시 false
       nodes: # 아래와 같이 노드와 디스크를 지정해 주지 않으면 알아서 빈 디스크로 설정
       - name: "k8s-worker-01" 
         devices:

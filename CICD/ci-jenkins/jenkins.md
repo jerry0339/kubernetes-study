@@ -218,3 +218,113 @@ pipeline {
     }
 }
 ```
+
+<br><br>
+
+## 6. BootJar 파일 & PlainJar 파일
+* BootJar 파일과 PlainJar 파일 차이
+  * BootJar: 애플리케이션 구동에 필요한 모든 의존성이 포함되어 있어 실행 가능한 파일이다.
+  * PlainJar: 모든 의존성을 포함하지 않고 클래스와 리소스 파일만 포함되어 있다. 즉, 실행가능하지 않은 파일임
+* 위의 Jenkinsfile에서 필요한 jar파일은 Bootjar 파일임
+  * **실행 가능한 파일**로 image를 만들어야 하기 때문
+* 하지만 gradle 빌드시 plain.jar도 같이 생성됨
+  * ![](2025-04-13-05-20-13.png)
+* gradle 설정에 아래의 설정 추가해 주면 plain.jar는 빌드되지 않음
+  ```groovy
+  tasks.named("jar") { // plain.jar 생성되지 않도록 설정
+      enabled = false
+  }
+  ```
+* 빌드 속도도 조금 빨라지고, `*.jar`와 같은 명령어로 jar파일을 탐색할 수 있어 Dockerfile같은 파일의 설정을 하기 쉬워짐
+
+<br><br>
+
+## 6. 환경변수 사용시 이미지 빌드 안되는 이슈
+* 아래와 같이 datasource 설정과 s3설정으로 환경변수를 사용할 수 있다.
+  * k8s cluster에서 배포시 환경 변수들은 ConfigMap이나 Secret으로 주입가능하여 아래와 같이 설정후 이미지를 빌드하면 된다.
+  ```yaml
+  spring:
+    profiles:
+      active: ${PROFILE_ACTIVE}
+    datasource:
+      driver-class-name: ${DB_DRIVER_CLASS_NAME}
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+    jpa:
+      database: mysql
+      hibernate:
+        ddl-auto: none
+      show-sql: true
+      properties:
+        hibernate.format_sql: true
+        dialect: org.hibernate.dialect.MySQL8InnoDBDialect
+
+  cloud:
+    aws:
+      s3:
+        bucket: ${BUCKET_NAME}
+      credentials:
+        access-key: ${ACCESS_KEY}
+        secret-key: ${SECRET_KEY}
+      region:
+        static: ${REGION}
+        auto: false
+      stack:
+        auto: false
+  ```
+
+<br>
+
+* 하지만, 프로젝트 설정 정보에 환경 변수에 해당하는 값이 없는 경우 빌드시 아래와 같은 에러가 생긴다.
+  * 이는 빌드시 환경변수에 대한 값을 찾을 수 없어 테스트 코드를 실행할 수 없다는 에러인데,
+  * k8s환경에서는 이미지 빌드 후 ConfigMap이나 Secret을 이용하여 환경 변수를 주입하기 때문에 해당 에러를 처리하기가 난감한 상황
+  * ![](2025-04-13-05-29-50.png)
+* 이때는 아래의 어노테이션을 입력해 주면 특정 프로파일의 환경에서만 테스트 코드를 실행하도록 할 수 있어 이미지 빌드가 가능하다.
+  * `@ActiveProfiles("dev")` - "dev" 프로파일에서만 테스트 코드 실행됨
+  * ![](2025-04-13-05-32-17.png)
+
+<br>
+
+* 또한 환경 변수에 관련된 코드를 @ActiveProfiles에서 설정한 프로파일에서는 동작하지 않도록 변경해 주어야 한다.
+  * 위의 설정 정보에서는 s3관련 환경 변수값들이 존재하지 않아 에러가 발생했는데,
+  * s3관련 코드들을 테스트 환경에서 실행되지 않도록 설정해 주면 된다.
+  * `@ActiveProfiles("dev")`로 dev프로파일에서만 테스트 코드 실행되도록 한 경우,
+  * dev프로파일에서 s3관련 코드가 동작하지 않도록 설정하면 되므로, 아래와 같이 설정하면 특정 프로파일에서만 Bean을 등록할 수 있다.
+    ```java
+    @Configuration
+    @Profile("prod") // prod 프로파일에서만 Bean으로 등록되는 Configuration
+    public class S3Config {
+        @Value("${cloud.aws.credentials.access-key}")
+        private String accessKey;
+        @Value("${cloud.aws.credentials.secret-key}")
+        private String secretKey;
+        @Value("${cloud.aws.region.static}")
+        private String region;
+        // ...
+    }
+
+    @RequiredArgsConstructor
+    @RestController
+    @RequestMapping("/images")
+    @Profile("prod") // prod 프로파일에서만 Bean으로 등록되는 Controller
+    public class ImageController {
+        private final S3ImageService s3ImageService;
+
+        //...
+    }
+
+    @RequiredArgsConstructor
+    @Service
+    @Profile("prod") // prod 프로파일에서만 Bean으로 등록되는 Service
+    public class S3ImageService {
+
+        private final AmazonS3 amazonS3;
+
+        @Value("${cloud.aws.s3.bucket}")
+        private String bucketName;
+
+        //...
+    }
+    ```
+  

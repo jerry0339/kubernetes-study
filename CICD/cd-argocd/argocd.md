@@ -17,6 +17,8 @@
 
 ### 1.1. GENERAL
 * App이름, Project Name, Sync Policy - `Manual` 설정
+  * App이름은 Helm Chart 이름이랑 동일하게 설정
+  * 그렇지 않으면 k8s 리소스 이름 이상하게 바뀜
 * ![](2025-04-03-22-38-02.png)
 * Sync Option - `Auto-Create Namespace` 체크해 주면, DESTINATION에 작성한 네임스페이스를 알아서 생성해 줌
 * ![](2025-04-03-22-38-13.png)
@@ -83,7 +85,7 @@
 
 <br><br>
 
-## 4. ArgoCD를 사용하면 좋은점? - Image Updater, Rollouts
+## 4. ArgoCD를 사용하면 좋은점?
 * k8s 리소스 관리하기 편함 - 깔끔하고 직관적인 UI와 Git을 이용한 Sync기능
 * ArgoCD Image Updater 이용한 변경 감지 및 자동 배포
 * ArgoCD Rollouts 이용한 고급 배포 지원 - Blue/Green , Canary
@@ -154,7 +156,12 @@
       4. `digest`
          * 특정 태그의 SHA256 해시 다이제스트를 기반으로 가장 최근에 푸시된 이미지를 선택?? (필요할때 찾아봐야 할듯)
          * CI 시스템에서 동일한 태그 이름으로 새로운 이미지를 반복적으로 푸시할 때 유용하다고 함
-  
+
 <br>
 
-### 4.2.
+* ArgoCD App의 Sync Policy를 Auto로 설정하고 App에 Annotaion들을 잘 추가해 주었다면,
+* ArgoCD Image Updater가 주기적으로 이미지의 새 버전을 확인하고 자동으로 배포해 줌
+* ArgoCD Image Updater Pod에서 로그로 해당 내용을 확인해 볼 수 있음
+  * ![](2025-04-06-02-43-11.png)
+
+### 4.3. ArgoCD Rollouts를 이용한 배포 - Blue/Green, Canary
