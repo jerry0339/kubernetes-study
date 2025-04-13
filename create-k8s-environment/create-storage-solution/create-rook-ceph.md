@@ -99,6 +99,7 @@ kubectl apply -f operator.yaml
   ```
 * health ok 체크 및 osd 3up 3in 확인
 * ![](2025-03-27-19-39-52.png)
+* `8.rook-ceph cluster 및 PVC 점검`에서 사용법 확인
 
 <br><br>
 
@@ -131,10 +132,35 @@ kubectl create -f storageclass.yaml
 <br><br>
 
 ## 8. Rook-Ceph Cluster 및 PVC 점검
-```sh
-kubectl get pods -n rook-ceph
-kubectl get cephcluster -n rook-ceph
-kubectl get storageclass
-kubectl get pvc
-```
+* storageclass, pvc 및 파드 기본 점검
+  * pod는 mon파드 확인 - Ceph 클러스터를 관리하는 pod임
+  ```sh
+  kubectl get pods -n rook-ceph
+  kubectl get cephcluster -n rook-ceph
+  kubectl get storageclass
+  
+  kubectl get pv
+  kubectl get pvc
+  kubectl get sc rook-ceph-block -o yaml
+  ```
 
+<br>
+
+### ceph 명령어 사용법
+* 위에서 설치한 toolbox(rook-ceph-tool)를 이용하여 ceph cluster를 점검할 수 있다.
+  * 아래의 명령어 입력하여 ceph명령어를 사용할 수 있다.
+    * `kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- bash`
+    * ![](2025-04-14-02-54-32.png)
+  * 또는 `kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- `명령어에 ceph 명령어를 추가하여 사용할 수 있음
+    * ex. kubectl -n rook-ceph exec -it deploy/rook-ceph-tools -- ceph df
+    * ![](2025-04-14-02-54-47.png)
+* ceph 명령어
+  * `ceph health detail`: 클러스터의 상세 경고 메시지를 제공
+  * `ceph -s`: 클러스터의 전체 상태를 요약
+  * `ceph df`: 전체 스토리지 사용량 확인
+  * `ceph osd df`: 각 OSD별 상세 사용량 확인
+  * OSD 상태 점검
+    * `ceph osd status`
+    * `ceph osd df`
+
+<br>
