@@ -40,7 +40,7 @@
   * values의 설정 내용 궁금하면 아래 명령어 입력시 파일 생성됨
     * `helm show values prometheus-community/prometheus > prometheus-values.yaml`
   * StorageClass 생성되어 있어야 함
-    * [참고 링크 - rook-ceph](/kubernetes-study/create-k8s-environment/create-storage-solution/create-rook-ceph.md)
+    * [참고 링크 - rook-ceph](/create-k8s-environment/create-storage-solution/create-rook-ceph.md)
   * alertmanager는 알림 관련 기능인데 일단 비활성화
     * `enabled:false` 설정시 alertmanager가 설치되지 않으므로 필요한 경우 삭제후 재설치
     ```yaml

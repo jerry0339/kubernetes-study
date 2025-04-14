@@ -1,6 +1,6 @@
 # Jenkins 이용한 CI 환경 설정
 * **Jenkins pipeline이용하여 Image 빌드하고 registry에 push하는 내용까지만 진행** (registry: Docker Hub사용)
-* [Jenkins 설치](/create-k8s/create-jenkins/jenkins-install.md) 및 CI 환경 세팅을 먼저 진행해야 함
+* [Jenkins 설치](/create-k8s-environment/create-jenkins/jenkins-install.md) 및 CI 환경 세팅을 먼저 진행해야 함
 * 아래의 레포 fork하여 진행함
   * https://github.com/k8s-1pro/kubernetes-anotherclass-api-tester
   * https://github.com/k8s-1pro/kubernetes-anotherclass-sprint2

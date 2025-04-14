@@ -289,4 +289,4 @@ sudo kubeadm join k8s-master.flowchat.shop:6443 --token ek38j6.dfs9qrpz26ag2ayw 
 <br>
 
 ## 14. Dashboard 설치하기
-* [Dashboard 설치](/create-k8s-cluster/create-dashboard/create-dashboard.md)
+* [Dashboard 설치](/create-k8s-environment/create-dashboard/create-dashboard.md)
