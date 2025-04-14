@@ -88,26 +88,35 @@
 ## 4. Grafana에서 Prometheus 연결하기
 *  Connections > Datasources 로 진입
 * ![](2025-04-14-04-01-28.png)
-* Add Datasource에서 prometheus 검색하여 선택하고 Prometheus server URL입력후 Save & test
+* Add Datasource에서 prometheus 검색하여 선택하고 이름(Prometheus - 대문자 주의)과 Prometheus server URL 입력후 Save & test
 * ![](2025-04-14-04-06-01.png)
 
 <br><br>
 
 ## 5. Grafana에 대시보드 Import 하기
 * 왼쪽 탭에서 Dashboards - Create Dashboard 선택
-* import dashboard 선택하 dashboard 생성
+* import dashboard 선택하고 dashboard 생성
 * `https://grafana.com/grafana/dashboards/`에서 ID 검색
 * ![](2025-04-14-04-24-13.png)
 
 <br>
 
-* 13770 으로 Load후 아까 생성한 datasource 선택 후 Import
+* 13770 으로 Load후 이전에 생성한 datasource 선택 후 Import
 * ![](2025-04-14-04-34-09.png)
 
 <br>
 
 * 정상적으로 import된 모습
 * ![](2025-04-14-04-36-18.png)
+
+<br>
+
+* 추천 대시보드
+* Kubernetes / Views / Global : 15757
+* Kubernetes All-in-one Cluster Monitoring KR : 13770 or 17900
+* Node Exporter Full : 1860
+* Node Exporter for Prometheus Dashboard based on 11074 : 15172
+* kube-state-metrics-v2 : 13332
 
 <br><br>
 
