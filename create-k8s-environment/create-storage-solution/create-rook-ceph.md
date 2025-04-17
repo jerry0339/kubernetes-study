@@ -144,6 +144,15 @@
     imageFormat: "2"                       # RBD 이미지 포맷
     imageFeatures: layering,exclusive-lock # exclusive-lock - 동시 쓰기 방지로 데이터 일관성 보장
     csi.storage.k8s.io/fstype: ext4        # 파일시스템 타입
+    # 시크릿 파라미터 추가
+    ## Rook-Ceph CSI 드라이버가 Ceph 스토리지에 접근할 때 RBAC(Role-Based Access Control) 권한을 확인
+    ## 따라서 아래의 내용을 추가하여 Ceph 클러스터의 관리자 권한이 포함된 시크릿(Secret)을 지정하고 권한을 획득해야 함
+    csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+    csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+    csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+    csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
   reclaimPolicy: Retain                    # Retain - PVC가 삭제되어도 PV와 데이터는 그대로 유지(상태저장 필요한 경우)
   allowVolumeExpansion: true               # 디스크 확장이 필요한 경우 또는 PVC가 더 큰 용량 요청 - PVC 크기 변경 가능
   volumeBindingMode: WaitForFirstConsumer  # volume을 특정 노드에 고정
