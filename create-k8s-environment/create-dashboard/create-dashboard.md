@@ -165,7 +165,7 @@ kubectl edit deployment kubernetes-dashboard -n kubernetes-dashboard
 ## 8. Metrics Server 설치하기
 * 대시보드에서 리소스들에 대한 정보를 확인하려면 Metrics Server를 설치해야함
   * Metrics Server가 여러 오브젝트들의 정보를 수집해 주기 때문
-* [Metrics Server 설치하기](/create-k8s-cluster/create-metrics-server/create-metrics-server.md)
+* [Metrics Server 설치하기](/create-k8s-environment/create-metrics-server/create-metrics-server.md)
 
 <br><br>
 

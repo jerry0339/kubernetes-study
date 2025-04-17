@@ -1,5 +1,5 @@
 # Redis Cluster 구축 & 간단한 Redis Cluster 개념 정리
-* [참고 링크](https://jeongchul.tistory.com/725)
+* k8s cluster, helm 3.x가 설치되어 있어야 하고 StorageClass가 있어야 함
 * 목적
   * 빠른 응답을 위한 캐시 데이터 활용
   * k8s 환경에 적용시, stateful set을 이용한 scale in/out이 가능함

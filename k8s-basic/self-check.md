@@ -73,7 +73,7 @@
 12. OX: Namespace로 NodePort Service를 구분할 수 있다 (같은 port의 NodePort Service를 Namespace별로 만들 수 있다)
     * X: Namespace와는 별개로 Cluster내에 같은 port를 사용하는 NodePort Service는 생성할 수 없음
 13. Replication Controller과 ReplicaSet 차이점?
-    * [replicaSet문서의 Replication Controller과 ReplicaSet 차이점 참고](/kubernetes-study/k8s-basic/section-05/1.ReplicaSet/replicaSet.md)
+    * [replicaSet문서의 Replication Controller과 ReplicaSet 차이점 참고](/k8s-basic/section-05/1.ReplicaSet/replicaSet.md)
 14. OX: Blue/Green 배포 방식에 Deployment 워크로드는 필요없다.
     * O: 새로운 template이 담긴 ReplicaSet을 추가하고 Service의 Label만 바꿔주면 된다.
 15. OX: Deployment Controller의 image를 변경하면 항상 새로운 ReplicaSet이 생성된다.
@@ -81,7 +81,7 @@
 16. OX: Deployment Controller를 삭제하면 해당 Deployment와 연결된 모든 ReplicaSet, Pod, Service가 삭제된다.
     * X: 워크로드들만 삭제된다. (Pod, ReplicaSet, Job 등)
 17. Rolling Update시 새로운 ReplicaSet이 생성될때 기존의 Pod와 연결되지 않는 이유?
-    * [deployment문서 참고](/kubernetes-study/k8s-basic/section-05/2.Deployment/deployment.md)
+    * [deployment문서 참고](/k8s-basic/section-05/2.Deployment/deployment.md)
 18. Readiness probe와 Liveness probe가 실패시 동작 차이점
     * Liveness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 재실행 시키지만,
     * Readiness Probe는 probe 핸들러 조건 아래 fail이 나면 pod를 서비스로부터 제외
