@@ -226,7 +226,7 @@ sudo kubeadm join {master-node-ip}:6443 \
     --certificate-key {certificate-key} # 기존 컨트롤 플레인 노드에서 공유된 인증서를 다운로드하고 사용할 수 있도록 설정
 ```
 
-* 토큰이 만료되었거나 분실한 경우, **Master 노드**에서 새로운 토큰을 생성 가능
+* 토큰이 만료되었거나 분실한 경우, 아래 명령어로 **Master 노드**에서 토큰 확인 가능
   * `kubeadm token create --print-join-command`
 
 <br>

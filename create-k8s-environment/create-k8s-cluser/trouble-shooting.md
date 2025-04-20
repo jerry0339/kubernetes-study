@@ -103,4 +103,5 @@ sudo crictl rmi --prune
 * kubelet 재시작 해주면 됨
   ```sh
   sudo systemctl restart kubelet
+  sudo systemctl restart containerd # containerd도 재시작
   ```

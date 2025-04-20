@@ -158,6 +158,17 @@ kubectl get pods -n argocd
 
 <br><br>
 
+### 6.3. ArgoCD Image Updater 점검
+* 이미지 업데이터가 동작하지 않는 경우 argocd-image-updater에 해당하는 파드의 로그를 확인하면 됨
+  * 아래 이미지처럼 에러 메시지 확인 가능
+  * ![](2025-04-20-17-23-47.png)
+* argocd 재시작
+  ```
+  kubectl -n argocd rollout restart deployment argocd-image-updater
+  ```
+
+<br><br>
+
 ## 7. Argo Rollouts 추가 설치
 ```sh
 ```

@@ -282,7 +282,7 @@ kubectl delete namespace rook-ceph
 kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n rook-ceph
 
 # 그래도 삭제 안된것이 있으면 해당 리소스 설정에서 finalizers: [] 로 변경해야 함
-k edit configmap rook-ceph-mon -n rook-ceph
+k edit configmap rook-ceph-mon-endpoints -n rook-ceph
 k edit secret rook-ceph-mon -n rook-ceph
 
 # 이후 각 노드마다 수행
