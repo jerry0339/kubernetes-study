@@ -7,13 +7,16 @@
 <br>
 
 ## 1. swap 메모리 비활성화
-```sh
-# Swap 비활성화
-sudo swapoff -a
+* `swap 메모리`: 물리 메모리(RAM)의 용량 부족시 하드 디스크의 일부 공간을 메모리처럼 사용하는 것
+* kubernetes는 필요한 만큼의 리소스(cpu,memory)를 할당 받아 사용하는 구조
+* kubernetes에서는 메모리 swap을 고려하지 않고 설계되었기 때문에 swap 메모리는 비활성화 해주어야 함
+  ```sh
+  # Swap 비활성화
+  sudo swapoff -a
 
-# 부팅 시 swap이 다시 활성화되지 않도록 설정
-sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-```
+  # 부팅 시 swap이 다시 활성화되지 않도록 설정
+  sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+  ```
 
 <br>
 
@@ -95,18 +98,20 @@ sudo sysctl --system
 <br>
 
 ## 4. Containerd 설치 및 설정
-```sh
-# containerd 설치
-sudo apt-get update
-sudo apt install -y containerd
+* containerd 설치
+  ```sh
+  sudo apt-get update
+  sudo apt install -y containerd
+  ```
 
-# **아래의 4항목(containerd 설정 파일 생성 및 수정)은 안해도 되는듯 함**
-sudo mkdir -p /etc/containerd
-sudo containerd config default | sudo tee /etc/containerd/config.toml
-sudo vi /etc/containerd/config.toml
-# SystemdCgroup = true 로 수정 후 저장
-```
-* ![](2024-11-26-19-04-16.png)
+* 아래의 4항목(containerd 설정 파일 생성 및 수정)은 이유를 모르겠지만, `unbuntu 24.04`부터 안해도 되는듯 함
+  ```
+  sudo mkdir -p /etc/containerd
+  sudo containerd config default | sudo tee /etc/containerd/config.toml
+  sudo vi /etc/containerd/config.toml
+  # SystemdCgroup = true 로 수정 후 저장
+  ```
+  * ![](2024-11-26-19-04-16.png)
 
 <br>
 

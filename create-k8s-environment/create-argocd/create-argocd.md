@@ -75,7 +75,7 @@ kubectl create namespace argocd
 <br><br>
 
 ## 5. 대시보드 접속하기
-* NodePort type 설정시, `https://{도메인}:32000`으로 접속
+* NodePort type 설정시, `https://{도메인}:32000`으로 접속 (설정 포트 확인)
 * LoadBalancer type 설정시, Ingress 컨트롤러가 배포되어 있어야 하며 SSL/TLS 설정이 없으면 HTTP 기본 포트(80)로만 접근 가능함 주의
 * ArgoCD 대시보드 admin 계정 비밀번호 조회
     ```sh

@@ -3,6 +3,9 @@
 ## 1. 사전 준비 사항
 1. Rook-Ceph를 배포할 Kubernetes 클러스터
    * 최소 노드 3개 필요 - master 제외 worker 3개
+   * vm 최소 요구 사양 - `cpu 4, memory 16G` worker노드 3개
+   * 테스트 환경일 경우, ceph의 mon, mgr, osd의 자원 요구치를 낮추면 `cpu 2, memory 8G` worker노드 3개로 가능
+     * 자원 요구치 낮추는 설정 정보는 5항목의 cluster.yaml 참고
 2. 클러스터에 접근할 수 있는 kubectl 설치
    * k8s cluster 구축시 해결
 3. Ceph의 데이터 저장을 위해 각 노드에 별도의 디스크 필요
@@ -64,11 +67,8 @@
 <br><br>
 
 ## 5. Ceph Cluster 설정 및 생성
-* cluster.yaml 파일에서 사용하려는 노드와 디스크 구성을 확인하거나 필요한 경우 수정해야 하지만 일단 기본 설정으로 적용함
-  ```sh
-  cd rook/deploy/examples
-  kubectl apply -f cluster.yaml
-  ```
+* 사용하려는 노드와 디스크 구성을 확인하여 cluster.yaml 파일에 설정해 주어야 함
+  * rook/deploy/examples 경로의 `cluster.yaml` 수정
 * `특정 노드` 또는 `특정 디스크`를 사용하고자 한다면 아래와 같이 세팅 가능
   * cephVersion을 spec에 적어주는 이유 (필수)
     * Rook이 관리하는 새로운 Ceph 클러스터를 생성할 때는 초기 cluster.yaml 파일의 spec 섹션 안에 cephVersion.image를 명시적으로 포함해야 함
@@ -76,10 +76,33 @@
     * 따라서 rook 버전과 호환되는 ceph버전을 찾아 입력해 주어야 함
       * `quay.io/ceph/ceph:v19.2.2` 사용함. `quay.io/`생략시 docker.io로 요청되니 조심
   ```yaml
-  # cluster.yaml 수정
   spec:
     cephVersion:
       image: quay.io/ceph/ceph:v19.2.2 # Rook v1.16와 호환되는 Ceph 이미지 버전 v19.2
+    resources: # 테스트 환경 세팅
+      # 공식 문서에서 설명하는, mon mgr osd의 최소 사양으로 세팅함
+      # https://rook.io/docs/rook/v1.16/CRDs/Cluster/ceph-cluster-crd/?h=resource+settin#cluster-settings
+      mon:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      mgr:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      osd:
+        requests:
+          cpu: "0.5"
+          memory: "4Gi"
+        limits:
+          cpu: "2"
+          memory: "6Gi"
     storage:
       useAllNodes: false # default: true - 사용할 노드 지정시 false
       useAllDevices: false # default: true - 사용할 디스크 지정시 false
@@ -93,6 +116,9 @@
       - name: "k8s-worker-03"
         devices:
         - name: "sdb"
+  ```
+  ```sh
+  kubectl apply -f cluster.yaml
   ```
 * cluster.yaml 적용 이후 Pod 상태 점검
   * 모든 Pod가 정상 실행될 때까지 대기
@@ -143,7 +169,7 @@
     pool: ssd-pool                         # 위에서 생성한 풀 이름
     imageFormat: "2"                       # RBD 이미지 포맷
     imageFeatures: layering,exclusive-lock # exclusive-lock - 동시 쓰기 방지로 데이터 일관성 보장
-    csi.storage.k8s.io/fstype: ext4        # 파일시스템 타입
+    csi.storage.k8s.io/fstype: xfs        # 파일시스템 타입
     # 시크릿 파라미터 추가
     ## Rook-Ceph CSI 드라이버가 Ceph 스토리지에 접근할 때 RBAC(Role-Based Access Control) 권한을 확인
     ## 따라서 아래의 내용을 추가하여 Ceph 클러스터의 관리자 권한이 포함된 시크릿(Secret)을 지정하고 권한을 획득해야 함
@@ -180,7 +206,13 @@
     pool: general-pool
     imageFormat: "2"
     imageFeatures: layering,exclusive-lock
-    csi.storage.k8s.io/fstype: ext4
+    csi.storage.k8s.io/fstype: xfs
+    csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+    csi.storage.k8s.io/controller-expand-secret-name: rook-csi-rbd-provisioner
+    csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+    csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+    csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
   reclaimPolicy: Delete
   allowVolumeExpansion: true
   volumeBindingMode: WaitForFirstConsumer

@@ -41,7 +41,7 @@ helm repo update
 ## 3. KRaft 모드 설정하기
 * KRaft 모드 구성 및 브로커의 PV생성을 위한 PVC설정이 필요함 - `kafka-values.yaml` 설정
   * KRaft모드 설정으로 생성된 파드는 **브로커와 컨트롤러 역할을 동시에 수행**함
-  * storageClass의 경우 rook-ceph환경에서 생성한 storageClass를 사용
+  * storageClass의 경우 rook-ceph환경에서 생성한 storageClass를 사용 - [참고 링크](/create-k8s-environment/create-storage-solution/create-rook-ceph.md)
 * `kafka-values.yaml` 설정 파일 정보
   ```yaml
   # values-kafka.yaml
