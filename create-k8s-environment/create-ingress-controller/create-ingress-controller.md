@@ -57,9 +57,5 @@
 
 <br>
 
-## LoadBalancer 타입의 Ingress Controller 배포하기 - GCP LoadBalancer 이용
-```sh
-```
-
 
 
