@@ -134,10 +134,10 @@
     * jerry0339-api-tester: 이미지의 별칭(alias)으로 이후의 annotation에서 참조
     * jerry0339/api-tester: 실제 이미지 경로 (cf. registry 설정으로 credentials정보와 docker.io/가 생략되어 있는 것)
   * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags`: 특정 태그 패턴에 해당하는 이미지만 업데이트 대상으로 지정
-    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags = regexp:^1.1.2-[0-9]{6}.[0-9]{6}$` 의 경우
+    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags = regexp:^1.0.0-[0-9]{6}.[0-9]{6}$` 의 경우
     * jerry0339-api-tester는 앞서 설정한 alias에 해당
-    * regexp:^1.1.2-[0-9]{6}.[0-9]{6}$: 해당 regex 패턴에 해당하는 태그를 가진 이미지만 업데이트 대상임
-    * ex. 1.1.2-20250406.123456
+    * regexp:^1.0.0-[0-9]{6}.[0-9]{6}$: 해당 regex 패턴에 해당하는 태그를 가진 이미지만 업데이트 대상임
+    * ex. 1.0.0-20250406.123456
   * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy`: 이미지 업데이트 전략을 정의
     * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy = alphabetical` 의 경우
     * jerry0339-api-tester는 앞서 설정한 alias에 해당
@@ -145,7 +145,7 @@
       1. `alphabetical` (`name`에서 변경됨)
          * 알파벳순으로 정렬된 목록의 마지막 태그로 업데이트
          * 날짜 기반 또는 정렬 가능한 태그일 경우 사용
-         * ex. 1.1.2-alpha, 1.1.2-beta, 1.1.2-release라면, 알파벳 순서로 가장 높은 값인 release가 선택됨
+         * ex. 1.0.0-alpha, 1.0.0-beta, 1.0.0-release라면, 알파벳 순서로 가장 높은 값인 release가 선택됨
       2. `semver`
          * 주어진 이미지 제약 조건에 따라 허용되는 가장 높은 버전으로 업데이트
          * 태그가 Semantic Versioning 규칙(X.Y.Z)을 따르는 경우에 사용함
