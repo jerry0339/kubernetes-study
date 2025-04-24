@@ -44,7 +44,7 @@ helm repo update
   * storageClass의 경우 rook-ceph환경에서 생성한 storageClass를 사용 - [참고 링크](/create-k8s-environment/create-storage-solution/create-rook-ceph.md)
 * `kafka-values.yaml` 설정 파일 정보
   ```yaml
-  # values-kafka.yaml
+  # kafka-values.yaml
   global:
     storageClass: "stateful-rook-ceph-block"
 
@@ -53,7 +53,7 @@ helm repo update
     kraft:
       enabled: true  # KRaft 모드 활성화
     persistence:
-      size: 20Gi     # PVC 크기 지정 - test환경에서는 5Gi 충분, allowVolumeExpansion: true설정이 storageclass에 있으므로 확장도 가능
+      size: 5Gi     # PVC 크기 지정 - 20G 권장, allowVolumeExpansion: true설정이 storageclass에 있으므로 확장도 가능
       # existingClaim: ""  # 기존 PVC 사용할 경우, 이름 지정
     configurationOverrides:
       - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
@@ -61,6 +61,18 @@ helm repo update
       - "controller.quorum.voters=0@kafka-0.kafka-headless:9093,1@kafka-1.kafka-headless:9093,2@kafka-2.kafka-headless:9093" # 노드는 3개 사용할 예정이므로 3개 지정
       - "listeners=PLAINTEXT://:9092,CONTROLLER://:9093"
       - "advertised.listeners=PLAINTEXT://$(POD_IP):9092"
+      - "num.network.threads=3"  # 기본값 5 → 3으로 감소 설정 (test 환경)
+      - "num.io.threads=5"       # 기본값 8 → 5로 감소 설정 (test 환경)
+    resources: # 아래 설정은 test환경 최소 사양 세팅
+      requests:
+        cpu: "250m"      # default - 250m : Pod가 계속 재시작 된다면 500m으로 늘릴 필요 있음
+        memory: "1.5Gi"  # default - 2.5Gi
+      limits:
+        cpu: "1"         # default - 1
+        memory: "2.5Gi"  # default - 8.5Gi
+    monitoring:
+      jmx:
+        enabled: true  # 모니터링 활성화 - Prometheus와 연결 가능
   ```
 
 <br><br>
@@ -68,7 +80,7 @@ helm repo update
 ## 4. Kafka 설치하고 점검하기
 ```sh
 # kafka 설치
-helm install kafka bitnami/kafka --namespace kafka --create-namespace -f values-kafka.yaml
+helm install kafka bitnami/kafka --namespace kafka --create-namespace -f kafka-values.yaml
 ```
 ```sh
 # pod 점검

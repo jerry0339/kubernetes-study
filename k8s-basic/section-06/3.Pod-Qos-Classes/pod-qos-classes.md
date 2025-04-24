@@ -83,3 +83,11 @@
     * `Limits`: 컨테이너가 사용할 수 있는 최대 리소스
       * Limits는 100%를 초과할 수 있도록 설계됨, 200%까지 가능한듯
       * Limits는 실행 중 컨테이너 리소스 사용량 제한에 사용되기 때문
+
+<br>
+
+## 노드에서 OOM은 어떻게 발생하며 어떤 작업이 이루어질까?
+* 다수의 파드가 메모리를 과도하게 사용하여 노드의 Allocatable 메모리를 초과하는 경우 OOM이 발생됨
+* OOM 발생시 kubelet이 MemoryPressure를 감지하고 Pod Eviction을 시작함
+* Eviction 순서는 QoS(Quality of Service) 클래스에 따라 결정됨
+* Eviction 후에도 메모리가 부족하면 Linux 커널의 Global OOM Killer가 동작
