@@ -4,11 +4,8 @@
 1. Rook-Ceph를 배포할 Kubernetes 클러스터
    * 최소 노드 3개 필요 - master 제외 worker 3개
    * vm 최소 요구 사양 - `cpu 4, memory 16G` worker노드 3개
-   * 테스트 환경일 경우, ceph의 mon, mgr, osd의 자원 요구치를 낮추면 `cpu 2, memory 8G` worker노드 3개로 가능
-     * 자원 요구치 낮추는 설정 정보는 5항목의 cluster.yaml 참고
-2. 클러스터에 접근할 수 있는 kubectl 설치
-   * k8s cluster 구축시 해결
-3. Ceph의 데이터 저장을 위해 각 노드에 별도의 디스크 필요
+     * 테스트 환경일 경우, `cpu 2, memory 8G` worker노드 3개로 돌아가긴 함
+2. Ceph의 데이터 저장을 위해 각 노드에 별도의 디스크 필요
    * 최소 노드 3개에 별도의 디스크 세팅으로 총 `3개 이상의 여분의 디스크` 필요
    * 여분의 디스크는 `사용 가능한 남은 용량을 나타내는 것이 아님`
    * `lsblk`, `sudo fdisk -l` 명령어를 통해 확인할 수 있는 여분의 disk임
@@ -55,12 +52,8 @@
   * 아래에서 적용하는 CRD들은 Rook이 Ceph 클러스터를 관리하는데 사용되는 리소스에 해당
   ```sh
   cd rook/deploy/examples
-
-  # CRDs(Custom Resource Definitions) 적용
-  kubectl apply -f crds.yaml
-
-  # Rook Operator 배포
   kubectl apply -f common.yaml
+  kubectl apply -f crds.yaml
   kubectl apply -f operator.yaml
   ```
 
@@ -79,8 +72,9 @@
   spec:
     cephVersion:
       image: quay.io/ceph/ceph:v19.2.2 # Rook v1.16와 호환되는 Ceph 이미지 버전 v19.2
-    resources: # 테스트 환경 세팅
-      # 공식 문서에서 설명하는, mon mgr osd의 최소 사양으로 세팅함
+    # test 환경일 경우, resource자원 명시하지 않고 BestEffort pod로 사용하면 돌아가긴 함
+    resources: # cpu, memory 자원 예약하여 사용시
+      # 아래는 공식 문서에서 설명하는, mon mgr osd의 최소 사양 세팅 requests - cpu:1.5, memory:6Gi
       # https://rook.io/docs/rook/v1.16/CRDs/Cluster/ceph-cluster-crd/?h=resource+settin#cluster-settings
       mon:
         requests:
@@ -98,7 +92,7 @@
           memory: "2Gi"
       osd:
         requests:
-          cpu: "0.5"
+          cpu: "500m"
           memory: "4Gi"
         limits:
           cpu: "2"
@@ -269,6 +263,13 @@
 
 <br>
 
+* osd prepare job은 실행됐는데 osd가 생성되지 않았다면, prepare job의 로그를 확인해야함, 또는 아래 명령어 확인
+  ```sh
+  kubectl logs -n rook-ceph $(kubectl get pods -n rook-ceph -l app=rook-ceph-osd-prepare -o name | head -1) -f
+  ```
+
+<br>
+
 ### ceph 점검을 위한 명령어 사용법
 * 위에서 설치한 toolbox(rook-ceph-tool)를 이용하여 ceph cluster를 점검할 수 있다.
   * 아래의 명령어 입력하여 ceph명령어를 사용할 수 있다.
@@ -289,46 +290,77 @@
 <br><br>
 
 ## 10. cf. Rook-Ceph 삭제 방법
-```sh
-kubectl -n rook-ceph patch cephcluster rook-ceph --type merge \
-  -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
+* 디스크는 삭제후 재생성 해야함
+  * 디스크에 저장된 메타데이터 때문에 osd가 생성이 안되는 이슈가 있음.. -> 해결 못함
+* 삭제 과정 
+  * **생성한 storageClass 먼저 삭제**해야 함
+  * delete-ceph.sh 스크립트 생성후 ceph관련 리소스들 전부 삭제
+  ```sh
+  # 생성한 storageClass 먼저 삭제
+  # delete-ceph.sh 생성
+  cat > delete-ceph.sh <<'EOF'
+  kubectl -n rook-ceph patch cephcluster rook-ceph --type merge \
+    -p '{"spec":{"cleanupPolicy":{"confirmation":"yes-really-destroy-data"}}}'
 
-kubectl -n rook-ceph patch cephcluster/rook-ceph --type json --patch='[ { "op": "remove", "path": "/metadata/finalizers" } ]'
+  ## finalizers 제거 작업
+  kubectl -n rook-ceph patch cephcluster/rook-ceph --type json --patch='[ { "op": "remove", "path": "/metadata/finalizers" } ]'
 
-cd rook/deploy/examples
-kubectl delete -f operator.yaml
-kubectl delete -f cluster.yaml
-kubectl delete -f common.yaml
+  kubectl patch secret rook-ceph-mon -n rook-ceph \
+    --type='json' \
+    -p '[{"op": "remove", "path": "/metadata/finalizers"}]'
 
-for crd in $(kubectl get crd | grep ceph | awk '{print $1}'); do
-  kubectl get crd $crd -o json | jq '.metadata.finalizers=[]' | kubectl replace --raw "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/$crd" -f -
-  kubectl delete crd $crd
-done
+  kubectl patch configmap rook-ceph-mon-endpoints -n rook-ceph \
+    --type='json' \
+    -p '[{"op": "remove", "path": "/metadata/finalizers"}]'
 
-kubectl -n rook-ceph delete cephcluster rook-ceph
-kubectl delete crd cephclusters.ceph.rook.io cephblockpools.ceph.rook.io
+  kubectl get cephblockpools.ceph.rook.io -A -o json | \
+  jq 'del(.items[].metadata.finalizers)' | \
+  kubectl replace -f -
 
-kubectl delete namespace rook-ceph
+  ## ceph 리소스들 제거
+  cd rook/deploy/examples
+  kubectl delete -f toolbox.yaml
+  kubectl delete -f cluster.yaml
+  kubectl delete -f operator.yaml
 
-# 삭제 확인
-kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n rook-ceph
+  for crd in $(kubectl get crd | grep ceph | awk '{print $1}'); do
+    kubectl get crd $crd -o json | jq '.metadata.finalizers=[]' | kubectl replace --raw "/apis/apiextensions.k8s.io/v1/customresourcedefinitions/$crd" -f -
+    kubectl delete crd $crd
+  done
 
-# 그래도 삭제 안된것이 있으면 해당 리소스 설정에서 finalizers: [] 로 변경해야 함
-k edit configmap rook-ceph-mon-endpoints -n rook-ceph
-k edit secret rook-ceph-mon -n rook-ceph
+  kubectl get clusterrolebinding -o json | jq '.items[] | select(.subjects[]?.namespace == "rook-ceph") | .metadata.name' | xargs kubectl delete clusterrolebinding
+  kubectl get clusterrole | grep -E 'rook-ceph|cephfs|rbd|objectstorage' | awk '{print $1}' | xargs kubectl delete clusterrole
 
-# 이후 각 노드마다 수행
-# 파일 생성해서 실행 - 노드마다 디스크 초기화(예: /dev/sdb 사용 시)
-cat > initdisk.sh
-DISK="/dev/sdb"
-sudo sgdisk --zap-all $DISK
-sudo dd if=/dev/zero of=$DISK bs=1M count=100 oflag=direct,dsync
-sudo wipefs -a /dev/sdb
-sudo rm -rf /var/lib/rook/*
-sudo partprobe $DISK
-# ctrl + d
+  kubectl delete -f common.yaml
 
-chmod +x initdisk.sh
+  ## 남은 커스텀 리소스 제거
+  kubectl get crd | grep 'objectbucket.io' | awk '{print $1}' | xargs kubectl delete crd
 
-./initdisk.sh
-```
+  ## 네임스페이스까지 제거하면 모두 삭제 완료
+  kubectl delete namespace rook-ceph
+
+  ## 삭제 확인
+  kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n rook-ceph
+  EOF
+
+  # 권한 추가 및 실행
+  chmod +x delete-ceph.sh && ./delete-ceph.sh
+  ```
+* 디스크 설정 초기화
+  ```sh
+  cat > initdisk.sh <<'EOF'
+  DISK="/dev/sdb"
+  sudo fuser -k $DISK || true
+  sudo sgdisk --zap-all $DISK
+  sudo dd if=/dev/zero of=$DISK bs=1M count=100 oflag=direct,dsync
+  sudo dd if=/dev/zero of=$DISK bs=1M seek=$((`sudo blockdev --getsz $DISK` / 2048 - 100)) count=100 oflag=direct,dsync
+  sudo dd if=/dev/zero of=$DISK bs=1M seek=100 count=100 oflag=direct,dsync
+  sudo wipefs -a $DISK
+  sudo dmsetup remove_all || true
+  sudo rm -rf /var/lib/rook/* /var/lib/ceph/* /etc/ceph/*
+  sudo partprobe $DISK
+  sudo udevadm trigger
+  EOF
+
+  chmod +x initdisk.sh && ./initdisk.sh
+  ```
