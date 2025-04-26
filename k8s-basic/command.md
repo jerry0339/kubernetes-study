@@ -44,16 +44,28 @@
 
 <br>
 
-## curl 이미지 이용하여 임시 Pod에서 curl 테스트
-```bash
-kubectl run mycurlpod --image=curlimages/curl -i --tty -- sh
+## 테스트용 이미지 이용하여 임시 Pod에서 테스트 (curl, nslookup)
+* curl 테스트
+  ```sh
+  kubectl run mycurlpod --image=curlimages/curl -i --tty -- sh
 
-# 해당 pod에서 테스트 하기
-$curl [테스트할 주소]
+  # 해당 pod에서 테스트 하기
+  $curl [테스트할 주소]
 
-# 이후 해당 pod 들어가기
-kubectl exec -it mycurlpod -- sh
+  # 이후 해당 pod 들어가기
+  kubectl exec -it mycurlpod -- sh
 
-# pod 삭제하기
-kubectl delete pod mycurlpod
-```
+  # pod 삭제하기
+  kubectl delete pod mycurlpod
+  ```
+* nslookup 테스트
+  ```sh
+  kubectl apply -f https://k8s.io/examples/admin/dns/dnsutils.yaml
+  kubectl exec -it dnsutils -- nslookup [테스트할 도메인]
+
+  # 또는 해당 pod 들어가기
+  kubectl exec -it dnsutils -- sh
+  
+  # pod 삭제하기
+  kubectl delete pod dnsutils
+  ```
