@@ -65,8 +65,9 @@ helm repo update
       - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
       - "listeners=CLIENT://:9092,CONTROLLER://:9093"
       - "listener.security.protocol.map=CLIENT:PLAINTEXT"
-      - "num.network.threads=3"  # 기본값 5 → 3으로 감소 설정 (test 환경)
-      - "num.io.threads=5"       # 기본값 8 → 5로 감소 설정 (test 환경)
+      - "num.partitions=3"       # 자동 생성되는 토픽의 파티션 개수 설정
+      - "num.network.threads=3"  # 기본값 5 → 3으로 감소 설정 (test 환경 용도)
+      - "num.io.threads=5"       # 기본값 8 → 5로 감소 설정 (test 환경 용도)
     resources: # 아래 설정은 test환경 최소 사양 세팅
       requests:
         cpu: "250m"      # default - 250m : Pod가 계속 재시작 된다면 500m으로 늘릴 필요 있음
@@ -114,6 +115,7 @@ kubectl logs kafka-controller-0 -n kafka | grep -E "advertised.listeners|listene
 
 ## 5. Spring Application Pod와 연결
 * Kafka 브로커&컨트롤러 파드는 Headless Service로 접근(clusterIP:None)
+* application.yaml 파일에 아래와 같은 kafka 설정 추가하면 됨, group-id는 서비스별로 정하는 것이 좋은듯
   ```yaml
   spring:
     kafka:
@@ -126,8 +128,59 @@ kubectl logs kafka-controller-0 -n kafka | grep -E "advertised.listeners|listene
         key-serializer: org.apache.kafka.common.serialization.StringSerializer
         value-serializer: org.apache.kafka.common.serialization.StringSerializer
       consumer:
-        group-id: test-group
+        group-id: test-service-group
         auto-offset-reset: earliest
         key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
         value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  ```
+
+<br><br>
+
+## 6. Kafka 클러스터에 접근할 수 있는 Pod 생성 (클라이언트 도구)
+* 해당 파드의 이미지는 Bitnami의 Kafka Docker 이미지로, Kafka 관리 및 테스트에 필요한 모든 CLI 명령어가 포함되어 있음
+  * [참고 공식 문서](https://docs.bitnami.com/aws/infrastructure/kafka/administration/run-producer-consumer/)
+  * Bitnami Kafka는 기본적으로 /opt/bitnami/kafka/bin에 명령어가 있으므로 참고
+* Pod 생성 및 실행
+  ```sh
+  kubectl run kafka-client --restart='Never' --image docker.io/bitnami/kafka:latest --namespace kafka --command -- sleep infinity
+  kubectl exec -it kafka-client -n kafka -- bash
+  ```
+* 명령어
+  ```sh
+  # 브로커 주소 예시 : kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local
+
+  # 토픽 생성 - 복제 개수의 최대치는 브로커의 개수
+  kafka-topics.sh --bootstrap-server <브로커주소>:9092 --create --topic <토픽이름> --partitions <파티션개수> --replication-factor <복제개수>
+  kafka-topics.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --create --topic test --partitions 3 --replication-factor 3
+
+  # 클러스터에 존재하는 모든 토픽 목록 확인
+  /opt/bitnami/kafka/bin/kafka-topics.sh --list --bootstrap-server <브로커주소>:9092
+  /opt/bitnami/kafka/bin/kafka-topics.sh --list --bootstrap-server kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9092
+
+  # 토픽 삭제
+  kafka-topics.sh --bootstrap-server <브로커주소>:9092 --delete --topic <토픽이름>
+  kafka-topics.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --delete --topic test
+
+  # 토픽 수정
+  kafka-topics.sh --bootstrap-server <브로커주소>:9092 --alter --topic <토픽명> --partitions <새_파티션_개수>
+
+  # 토픽의 파티션 개수 확인
+  /opt/bitnami/kafka/bin/kafka-topics.sh --describe --topic <토픽명> --bootstrap-server <브로커주소>:9092
+  /opt/bitnami/kafka/bin/kafka-topics.sh --describe --topic test --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092
+
+  # 메시지 전송 (Producer) - 명령어 입력 후 메시지 작성시 전송됨
+  kafka-console-producer.sh --bootstrap-server <브로커주소>:9092 --topic <토픽명>
+  kafka-console-producer.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --topic test-topic
+
+  # 메시지 소비 (Consumer) - 메시지부터 처음부터(--from-beginning) 끝까지 모두 읽어서 출력, `--from-beginning` 옵션 빼면 새로 들어오는 메시지 출력됨
+  kafka-console-consumer.sh --bootstrap-server <브로커주소>:9092 --topic <토픽명> --from-beginning
+  kafka-console-consumer.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --topic test-topic --from-beginning
+
+  # 컨슈머 그룹 목록 조회
+  kafka-consumer-groups.sh --bootstrap-server <브로커주소>:9092 --list
+  kafka-consumer-groups.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --list
+
+  # 특정 컨슈머 그룹의 오프셋 정보 확인 (Lag 확인 가능)
+  kafka-consumer-groups.sh --bootstrap-server <브로커주소>:9092 --group <그룹명> --describe
+  kafka-consumer-groups.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --group test-group --describe
   ```
