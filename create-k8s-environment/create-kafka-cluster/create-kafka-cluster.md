@@ -83,33 +83,40 @@ helm repo update
 <br><br>
 
 ## 4. Kafka 설치하고 점검하기
-```sh
-# kafka 설치
-helm install kafka bitnami/kafka \
-  --namespace kafka \
-  --create-namespace \
-  -f kafka-values.yaml \
-  --set listeners.client.protocol=PLAINTEXT # SASL_PLAINTEXT에서 PLAINTEXT로 바꾸어서 적용
-```
-```sh
-# pod 점검
-kubectl -n kafka get pods # 설정한 개수만큼 있어야 함 - controller와 broker 역할을 동시에 수행하는 파드이므로 노드 개수만큼만
+* kafka 설치
+  ```sh
+  helm install kafka bitnami/kafka \
+    --namespace kafka \
+    --create-namespace \
+    -f kafka-values.yaml \
+    --set listeners.client.protocol=PLAINTEXT # SASL_PLAINTEXT에서 PLAINTEXT로 바꾸어서 적용
+  ```
+* kafka 파드 점검하기
+  ```sh
+  # pod 점검
+  kubectl -n kafka get pods # 설정한 개수만큼 있어야 함 - controller와 broker 역할을 동시에 수행하는 파드이므로 노드 개수만큼만
 
-# PVC 생성 확인(배포 1분 후 실행)
-kubectl -n kafka get pvc
+  # PVC 생성 확인(배포 1분 후 실행)
+  kubectl -n kafka get pvc
 
-# Pod 환경변수 확인
-kubectl exec kafka-controller-0 -n kafka -- env # 파드 이름 확인
+  # Pod 환경변수 확인
+  kubectl exec kafka-controller-0 -n kafka -- env # 파드 이름 확인
 
-# node.id 자동 할당 결과
-kubectl exec kafka-controller-0 -n kafka -- cat /opt/bitnami/kafka/config/server.properties | grep node.id # 파드 이름 확인
+  # node.id 자동 할당 결과
+  kubectl exec kafka-controller-0 -n kafka -- cat /opt/bitnami/kafka/config/server.properties | grep node.id # 파드 이름 확인
 
-# 브로커 로그 확인
-kubectl logs kafka-controller-0 -n kafka | grep -E "advertised.listeners|listener.security.protocol.map"
-```
+  # 브로커 로그 확인
+  kubectl logs kafka-controller-0 -n kafka | grep -E "advertised.listeners|listener.security.protocol.map"
+  ```
 * ![](2025-04-17-21-00-32.png)
 * 브로커 로그는 아래와 같아야 함. `CLIENT:PLAINTEXT` 확인 `SASL_PLAINTEXT` 아님!!
 * ![](2025-04-27-02-27-06.png)
+* kafka 버전 확인 방법
+  ```
+  kubectl exec -it kafka-controller-0 -n kafka -- bash # kafka 파드에 접속후
+  kafka-topics.sh --version # 버전 확인
+  ```
+  * ![](2025-04-29-14-39-22.png)
 
 <br><br>
 
