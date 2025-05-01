@@ -113,29 +113,158 @@
 <br><br>
 
 ## 4. Kafka Producer
-### 4.1. Partitioner
-### 4.2. Producer 옵션 - ISR(In-Sync-Replicas) , acks
+* kafka의 Producer는 데이터를 Kafka 클러스터로 전송하는 역할을 하는 클라이언트 애플리케이션
+* 프로듀서는 데이터를 전송할 때, **리더 파티션**을 가지고 있는 카프카 브로커와 직접 통신한다.
+* 프로듀서는 브로커로 데이터를 전송할 때 내부적으로 파티셔너, 배치 생성 단계(Accumulator)를 거침
+
+<br>
+
+### 4.1. Producer 내부 구조
+* `ProducerRecord`: 프로듀서에서 생성하는 레코드. 오프셋은 포함되지 않음(클러스터에 저장될때 생성됨)
+* `send()`: 레코드 전송 요청 메서드
+* `Partitioner`: 어느 파티션으로 전송할지 지정하는 파티셔너. DefaultPartitioner가 기본 클래스
+  * 파티셔닝 전략(파티셔너 클래스)에 따라 다르지만, 레코드는 기본적으로 키값에 의해 특정 파티션에 고정적으로 할당됨.
+  * cf. 레코드의 복제는 다른 브로커에 이루어 짐. 즉, 해당 파티션의 레코드는 그 브로커 내에 하나만 존재하게 됨
+* `Accumulator`: 배치로 묶어 전송할 데이터를 모으는 **버퍼**
+  * 즉, send()할때마다 데이터를 보내는 것이 아니라 데이터를 묶어서 브로커로 전송하여 데이터 처리량을 높임
+  * cf. producer.flush() 코드로 버퍼의 데이터를 바로 보내도록 할 수도 있음
+* ![](2025-05-01-14-31-17.png)
+
+<br>
+
+### 4.2. ISR과 acks 옵션 (Producer 옵션)
 * [참고한 링크](https://techietalks.tistory.com/entry/Apache-Kafka-%EB%B8%8C%EB%A1%9C%EC%BB%A4-%EB%B3%B5%EC%A0%9C-ISR-%EC%9D%B4%EB%9E%80)
-* 카프카에서는 하나의 토픽 파티션을 여러 브로커에 걸쳐 복제할 수 있다.
-* 이는 데이터의 안정성을 보장하며, 특정 브로커 장애 발생 시 빠른 복구를 가능하게 한다.
-* ISR
-  * 리더 파티션과 동기화 상태를 유지하고 있는 모든 팔로워 파티션을 지칭
-  * 모든 복제본이 최신 상태를 유지하는 것이 중요하며, ISR 목록에 속해 있어야 함
+* 카프카에서는 하나의 토픽 파티션은 여러 브로커에 걸쳐 복제된다.
+* 이는 데이터의 안정성을 보장하며, 특정 브로커 장애 발생 시 빠른 복구를 가능하게 한다. (고가용성)
+* 리더 파티션과 팔로워 파티션?
+  * 여러 브로커에 복제되어 저장되는 파티션은 각각 리더 또는 팔로워의 역할을 가짐
+  * 프로듀서와 컨슈머는 오직 **리더 파티션**과만 직접 통신한다.
+  * 팔로워 파티션은 리더 파티션의 데이터를 복제하여 저장한다. 
+  * 팔로워 파티션에서는, 새로운 메시지가 있으면 리더로부터 데이터를 받아 동기화하는 작업이 필요함
+* `ISR(In-Sync-Replicas)`
+  * 팔로워 파티션은 리더 파티션과의 동기화 작업이 필요하기 때문에, 리더 파티션과 offset차이가 발생할 수 있다.
+  * 이때, 리더 파티션과 팔로워 파티션이 모두 싱크가 된 상태를 ISR이라고 함
+  * 아래 그림의 파티션을 보면 리더와 팔로워 파티션 모두 offset이 3으로 동일하므로 ISR 형태인 것임
+  * ![](2025-05-01-16-24-08.png)
+* `asks`
+  * 신뢰성과 처리 속도 사이의 trade off를 결정하는 설정
+  * acks(acknowledgments)는 프로듀서가 메시지를 브로커에 전송한 뒤,
+    * 브로커로부터 "정상적으로 메시지가 저장되었다"는 확인(응답)을 어떤 수준까지 받을지 결정하는 옵션
+  * 0, 1, all(-1) 값을 가질 수 있다.
+    * `0`: 확인하지 않음 - 최고 속도, 데이터 유실 위험 큼, 데이터 유실 발생하더라도 전송 속도가 중요한 경우 사용
+    * `1`: 리더 파티션 저장만 확인 - 리더 파티션에 적재되지 않았다면, 적재될 때까지 재시도 할 수 있다. 하지만 데이터 유실 가능
+      * 일반적인 경우, 해당(1) 옵션을 사용함
+    * `all(-1)`: ISR 내 모든 복제본 저장 확인 - 최고 신뢰성, 상대적으로 느림
+      * `min.insync.replicas`: ISR 파티션 개수, 1로 설정시 acks = 1 설정과 동일하다고 볼 수 있음. 즉, 1로 설정시 리더 파티션만 적재 확인함
+    * kafka 3.0 이상부터 **all**이 default 설정이지만, **min.insync.replicas = 1**이 default 설정이므로 acks=1과 같은 설정임
+
+<br>
+
+### 4.3. 멱등성 프로듀서 (enable.idempotence 옵션)
+* cf. 멱등성: 여러번 연산을 수행하더라도 동일한 결과를 나타내는 것
+* 프로듀서가 보내는 데이터의 중복 적재를 막기 위해 프로듀서의 enable.idempotence 옵션을 true로 설정하여 멱등성 프로듀서로써 사용할 수 있다.
+  * kafka 3.0 부터 `enable.idempotence = true`가 default
+* 멱등성 프로듀서는 동일한 데이터를 여러번 전송하더라도 카프카 클러스터에 단 한번만 저장되도록 할 수 있다. (Exactly once delivery)
+
+<br>
+
+### 4.4 producer 코드 예시
+
+#### 4.4.1. Producer 기본 사용법 예시 코드
+  ```java
+  KafkaProducer<String, String> producer = new KafkaProducer<>(configs);
+
+  // Value만 전송하는 경우
+  ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, "testMessage");
+  producer.send(record);
+
+  // (Key , Value) 전송하는 경우
+  ProducerRecord<String, String> record2 = new ProducerRecord<>(TOPIC_NAME, "6", "Busan");
+  producer.send(record2);
+
+  // (partition번호 지정, key, Value) 전송하는 경우
+  int partitionNo = 2;
+  ProducerRecord<String, String> record3 = new ProducerRecord<>(TOPIC_NAME, partitionNo, "1", "Seoul");
+  producer.send(record3);
+
+  producer.flush(); // Accumulator(버퍼)의 데이터를 클러스터(토픽의 파티션)으로 전송하는 코드
+  producer.close(); // Producer의 안전한 종료
+  ```
+#### 4.4.2. 커스텀 파티셔너를 가지는 Producer 예시 코드
+* ex. "Pangyo"라는 value를 가진 메시지를 항상 0번 파티션으로 할당하는 CustomPartitioner 코드
+  ```java
+  public class CustomPartitioner  implements Partitioner {
+
+      @Override
+      public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
+          if (keyBytes == null) {
+              throw new InvalidRecordException("Need message key");
+          }
+          if (((String)value).equals("Pangyo")) // 값이 Pangyo일 경우
+              return 0;
+
+          // Pangyo아닌 경우 정상 처리
+          List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
+          int numPartitions = partitions.size();
+          return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
+      }
+
+      @Override
+      public void configure(Map<String, ?> configs) {}
+
+      @Override
+      public void close() {}
+  }
+  ```
+* CustomPartitioner를 Partitioner로 변경하는 코드
+  ```java
+  Properties configs = new Properties();
+  // 위에서 정의한 CustomPartitioner를 파티셔너로 할당
+  configs.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, CustomPartitioner.class);
+
+  KafkaProducer<String, String> producer = new KafkaProducer<>(configs);
+  ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, "2", "Pangyo"); // 해당 레코드는 0번 파티션으로...
+
+  producer.send(record);
+  producer.flush();
+  producer.close(); // 프로듀서의 안전한 종료
+  ```
+
+#### 4.4.3. Producer의 Metadata 출력하기
+* producer.send(record).get() 으로 producer의 config 정보 받을 수 있음
+  ```java
+  // ...
+  KafkaProducer<String, String> producer = new KafkaProducer<>(configs);
+  ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, "2", "Pangyo");
+
+  // ...
+  try {
+      RecordMetadata metadata = producer.send(record).get(); // producer의 config 정보 받기
+      // logger.info(metadata.toString()); // 확인용 코드
+  } catch (Exception e) {
+      logger.error(e.getMessage(),e); // 문제가 생겼을때만 로그 남기는게 일반적임
+  } finally {
+      producer.flush();
+      producer.close();
+  }
+  ```
 
 <br><br>
 
 ## 5. Kafka Consumer
 * Producer가 전송한 데이터는 Kafka 브로커에, 정확히는 토픽 내의 특정 파티션에 적재되는데,
 * 컨슈머는 적재된 데이터를 사용하기 위해 브로커로부터 데이터를 가져와 처리한다.
+* 컨슈머는 데이터를 가져올 때, **리더 파티션**을 가지고 있는 카프카 브로커와 직접 통신한다.
 
 <br>
 
 ### 5.1. Consumer Group
 * 컨슈머 그룹은 카프카의 컨슈머 인스턴스들을 하나로 묶는 논리적 그룹 단위 이다.
   * 컨슈머들은 토픽을 구독하여, 토픽의 1개 이상의 파티션들에 할당되어 데이터를 가져갈 수 있다.
-  * 파티션과 컨슈머는 N:1 로 할당된다. 따라서 컨슈머의 개수는 파티션의 개수와 같거나 적어야 한다.
+  * 파티션과 컨슈머는 N:1 로 할당 가능하다. 따라서 컨슈머의 개수는 파티션의 개수와 같거나 적어야 한다.
     * 컨슈머 개수가 더 많아지는 경우, Idle 상태로 분류되고 스레드를 차지하므로 불필요한 리소스에 해당
-    * 따라서 아래 그림과 같이 컨슈머를 할당하며, 파티션과 컨슈머가 1:1로 대응되는 경우 리소스를 더 많이 차지하지만 처리속도가 가장 빠른 형태
+    * 따라서 아래 그림과 같이 컨슈머를 할당하며, 파티션과 컨슈머가 1:1로 대응되는 경우 리소스를 더 많이 차지하지만 처리속도가 가장 빠른 형태에 해당
+    * cf. **컨슈머와 파티션의 개수를 같게 하여 컨슈머와 파티션을 1:1로 할당하여 사용하는 것이 일반적인 방법**
   * ![](2025-04-29-19-18-00.png)
 
 #### 5.1.1. Consumer Group 왜 필요할까?
@@ -147,6 +276,7 @@
 * `다양한 용도별 데이터 소비`: 동일한 Topic에 여러 Consumer Group이 붙을 수 있고 필요에 따라 컨슈머의 개수를 다르게 적용 가능함
   * ex. 아래 그림에서와 같이, 그룹마다 다른 형태로 데이터가 적재되도록 소비할 수 있다.
   * 또한, 즉각적인 데이터 처리가 필요하다면 컨슈머 개수를 최대한으로 늘려 처리 속도를 올리거나 그렇지 않은 경우라면 컨슈머를 줄여 리소스를 절약할 수 있다.
+  * **컨슈머와 파티션의 개수를 같게 하여 컨슈머와 파티션을 1:1로 할당하여 사용하는 것이 일반적인 방법**
 * ![](2025-04-29-19-18-59.png)
 
 <br>
@@ -193,9 +323,49 @@
   * 컨슈머 랙의 총 개수 = 2(토픽) x 2(그룹) × 3(파티션) = 12개
 * ![](2025-04-30-02-06-09.png)
 
+<br>
+
+### 5.6. 멀티스레드 컨슈머
+* 기본적으로 하나의 컨슈머는 하나의 스레드를 가진다.
+* 멀티스레드 컨슈머란 - Kafka의 처리량을 늘리기 위해 파티션과 컨슈머를 병렬로 운영하는 방식
+* `todo`
+* ![](2025-05-01-22-32-55.png)
+
 <br><br>
 
-## 6. Kafka Streams
+## 6. Transaction Producer와 Consumer
+* 다수의 파티션에 데이터를 저장해야 하는 경우, `Transaction Producer`를 사용하여 하나의 Transaction으로 묶어서 처리할 수 있다.
+  * ![](2025-05-01-19-30-38.png)
+* 이때, `Transaction Consumer`는 트랜잭션이 완료되어 Commit된 데이터를 확인하고 데이터를 가져간다.
+  * 아래의 그림을 보면, 트랜잭션 컨슈머가 파티션의 트랜잭션 레코드 Commit 기록을 확인하고 데이터를 가져가는 모습
+  * ![](2025-05-01-19-34-33.png)
+* Transaction Producer 생성 코드 예시
+  ```java
+  // Transaction id 설정 -> UUID와 같이 고유한 값 사용
+  configs.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, UUID.randomUUID());
+
+  Producer<String, String> producer = new KafkaProducer<>(configs); 
+  producer.initTransactions(); // 트랜잭션 초기화
+
+  producer.beginTransaction(); // 트랜잭션 시작
+  // 하나의 트랜잭션내에 여러 토픽의 데이터 전송 가능
+  producer.send(new ProducerRecord<>(TOPIC_1, "전달하는 메시지 값 1"));
+  producer.send(new ProducerRecord<>(TOPIC_2, "전달하는 메시지 값 2")); 
+  producer.commitTransaction(); // 트랜잭션 완료(커밋)
+
+  producer.close(); // 안전한 프로듀서 종료
+  ```
+* Transaction Consumer 생성 코드 예시
+  ```java
+  // Transaction Consumer 설정 - read_committed로 변경
+  configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed"); // 기본값 - read_uncommitted
+  KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
+  ```
+
+
+<br><br>
+
+## 7. Kafka Streams
 * Kafka Streams는 kafka의 **topic의 데이터**를 읽고 **변환 처리**한 후 그 결과를 kafka의 **topic에 저장**하는 작업을 해줌
 * 출처 - [confluent 공식 문서](https://docs.confluent.io/platform/current/streams/architecture.html)
 * Kafka Streams API를 사용하는 애플리케이션의 구조
@@ -203,14 +373,14 @@
 
 <br>
 
-### 6.1. Kafka Streams란 ?
+### 7.1. Kafka Streams란 ?
   * Apache Kafka 기반의 실시간 데이터 처리를 위한 자바 라이브러리
   * Kafka 토픽에서 데이터를 읽고(Source Processor), 변환 or 가공 처리한 후(Stream Processor), 다시 Kafka 토픽으로 결과를 저장(Sink Processor)하는 작업을 수행함
   * Kafka Streams는 별도의 클러스터를 필요로 하지 않고, 라이브러리 형태로 일반 Java 애플리케이션을 통해 구현 가능
 
 <br>
 
-### 6.2. Kafka Streams 구조 ?
+### 7.2. Kafka Streams 구조 ?
 * Kafka Streams 는 Tree형 Topology 구조를 가짐, DAG임
 * 노드를 `Processor`, 간선을 `Stream` 이라고 부름
 * ![](2025-04-27-17-20-54.png)
@@ -230,7 +400,7 @@
 
 <br>
 
-### 6.3. kafka Producer와 Consumer를 이용하면 되는 내용인데 Kafka Streams를 쓰는 이유?
+### 7.3. kafka Producer와 Consumer를 이용하면 되는 내용인데 Kafka Streams를 쓰는 이유?
 * `실시간 데이터 처리` - Kafka 공식 Java 라이브러리로, 실시간 데이터 처리(필터, 변환, 집계, 조인 등)를 손쉽게 구현 가능
   * 여러 Producer/Consumer 조합으로 처리하던 복잡한 구조를 Kafka Streams를 이용하여 단순화
 * `부하 분산` - 내부적으로 파티션 단위로 작업을 분산 처리하고, 여러 인스턴스를 실행하면 자동으로 파티션을 나눠 병렬로 처리
@@ -243,7 +413,7 @@
 
 <br>
 
-### 6.4. Streams DSL(Domain Specific Language)
+### 7.4. Streams DSL(Domain Specific Language)
 * [참고 링크](https://goslim56.tistory.com/29)
 * 미리 제공되는 함수들을 이용하여 토폴로지를 정의하는 방식
 * 이벤트 기반 데이터 처리에 필요한 기능들을 제공하기 때문에 스트림즈를 구현하기 편함
@@ -252,7 +422,7 @@
 * application id로 Streams App을 구분하여 데이터 작업을 처리함
   * `application.id`: consumer의 Group Id와 동일한 역할로 Streams App을 구분하기 위한 고유 Id에 해당
 
-#### 6.4.1. Streams DSL의 stateful 프로세싱, stateless 프로세싱
+#### 7.4.1. Streams DSL의 stateful 프로세싱, stateless 프로세싱
 * Streams DSL는 실시간 데이터 처리를 위해 Stateful과 Stateless 연산(API)을 제공
 * cf. Streams DSL에서 제공하는 연산 이외의 커스텀 연산이 필요하다면 Processor API를 사용해야 함
 * Stateful 데이터 처리에 강함 (Streams는 상태를 유지해야 하는 복잡한 연산에 적합)
@@ -268,7 +438,7 @@
   * branch: 조건별로 스트림 분기 - `KStream<String, String>[] branches = stream.branch(pred1, pred2)`
   * merge: 여러 스트림을 하나로 병합 - `stream1.merge(stream2)`
 
-#### 6.4.2. stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
+#### 7.4.2. stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
 * ex. 주문량에 대해 1시간 구간으로 windowed stateful 프로세싱을 사용한다면?
   * 해당 데이터는 1시간 단위의 실시간(Stream) 데이터에 해당
   * 1시간 사이에 증분 업데이트(새로 추가되거나 수정된 데이터만 처리)된 결과가, Kafka 토픽에 스트림 형태로 저장되는 것
@@ -278,7 +448,7 @@
 * 즉, 실시간으로 데이터 발생 즉시 처리되며 `지속적`으로 들어오는 데이터 형태가 Stream 데이터이며
 * 월간 통계와 같이 일정 기간동안 수집된 데이터를 한번에 처리하여 `완결된` 데이터 형태가 Batch 데이터이다.
 
-#### 6.4.3. KStream, KTable, GlobalKTable ?
+#### 7.4.3. KStream, KTable, GlobalKTable ?
 * Streams DSL에서는 스트림 데이터 처리를 위해 KStream, KTable, GlobalKTable이라는 세 가지 핵심 추상화를 제공
 * `KStream`
   * 이벤트 스트림을 연속적인 레코드 시퀀스로 모델링
@@ -297,7 +467,7 @@
     * ex. UniformStickyPartitioner또는 custom Partitioner 구현하여 사용
     * 파티셔너 - key에 따라서 어느 Partition으로 갈지 정해주는 역할
 
-#### 6.4.4. Streams dsl 라이브러리 추가
+#### 7.4.4. Streams dsl 라이브러리 추가
 * 버전 확인
   * 설치된 kafka 버전 확인
   * kafka 4.0.0 사용중이므로 streams dsl 4.0.0 이상 버전을 사용해야 함
@@ -311,7 +481,7 @@
 
 <br><br>
 
-## 7. Kafka Connect
+## 8. Kafka Connect
 * Kafka Connect는 데이터 파이프라인 생성시 반복 작업을 줄이고 효율적인 전송을 하기 위한 애플리케이션이다.
   * DB나 FS와 연결하는데 사용함
     * ex. DB의 데이터를 Topic에 저장하고자 할때, DB에서 select하고 Topic에 Produce하는 과정을 Template으로 만들어 반복적으로 사용할 수 있음
@@ -330,7 +500,7 @@
 
 <br>
 
-### 7.1. Kafka Connect를 실행하는 방법
+### 8.1. Kafka Connect를 실행하는 방법
 * 단일 모드 커넥트 (Standalone Mode Kafka Connect)
   * 개발 환경 구성 용도
 * 분산 모드 커넥트 (Distributed Mode Kafka Connect)
@@ -339,7 +509,7 @@
 
 <br><br>
 
-## 8. Kafka Streams vs Kafka Connect
+## 9. Kafka Streams vs Kafka Connect
 * `Kafka Streams`는 윈도우 연산, 조인(Join), 집계(Aggregation) 등 **상태를 유지**해야 하는 복잡한 연산에 적합하며,
   * filter, map, branch 등 단순 변환 작업에 해당하는 Stateless 처리도 가능하다.
   * 즉, Kafka Streams는 Stateful 처리에 최적화되어 있지만, Stateless 작업도 수행 가능
@@ -353,5 +523,5 @@
 
 <br>
 
-## 카프카 아키텍처 예시
+## 9.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
 * ![](2025-04-29-19-26-14.png)

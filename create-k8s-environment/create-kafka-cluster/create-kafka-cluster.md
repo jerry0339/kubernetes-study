@@ -66,8 +66,9 @@ helm repo update
       - "listeners=CLIENT://:9092,CONTROLLER://:9093"
       - "listener.security.protocol.map=CLIENT:PLAINTEXT"
       - "num.partitions=3"       # 자동 생성되는 토픽의 파티션 개수 설정
-      - "num.network.threads=3"  # 기본값 5 → 3으로 감소 설정 (test 환경 용도)
-      - "num.io.threads=5"       # 기본값 8 → 5로 감소 설정 (test 환경 용도)
+      - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정 (test 환경 용도)
+      - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정 (test 환경 용도)
+      - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
     resources: # 아래 설정은 test환경 최소 사양 세팅
       requests:
         cpu: "250m"      # default - 250m : Pod가 계속 재시작 된다면 500m으로 늘릴 필요 있음
@@ -179,9 +180,12 @@ helm repo update
   kafka-console-producer.sh --bootstrap-server <브로커주소>:9092 --topic <토픽명>
   kafka-console-producer.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --topic test-topic
 
-  # 메시지 소비 (Consumer) - 메시지부터 처음부터(--from-beginning) 끝까지 모두 읽어서 출력, `--from-beginning` 옵션 빼면 새로 들어오는 메시지 출력됨
+  # 메시지 소비1 (Consumer) - 메시지부터 처음부터(--from-beginning) 끝까지 모두 읽어서 출력, `--from-beginning` 옵션 빼면 새로 들어오는 메시지 출력됨, value만 출력됨
   kafka-console-consumer.sh --bootstrap-server <브로커주소>:9092 --topic <토픽명> --from-beginning
   kafka-console-consumer.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --topic test-topic --from-beginning
+
+  # 메시지 소비2 (Consumer) - key데이터도 있는 경우, (--property print.key=true --property key.separator="-") 옵션에 의해 `key-value` 형태로 출력됨
+  kafka-console-consumer.sh --bootstrap-server <브로커주소>:9092 --topic <토픽명> --property print.key=true --property key.separator="-" --from-beginning
 
   # 컨슈머 그룹 목록 조회
   kafka-consumer-groups.sh --bootstrap-server <브로커주소>:9092 --list
