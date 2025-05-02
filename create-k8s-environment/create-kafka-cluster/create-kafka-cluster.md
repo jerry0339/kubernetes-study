@@ -191,7 +191,7 @@ helm repo update
   kafka-consumer-groups.sh --bootstrap-server <브로커주소>:9092 --list
   kafka-consumer-groups.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --list
 
-  # 특정 컨슈머 그룹의 오프셋 정보 확인 (Lag 확인 가능)
+  # 특정 컨슈머 그룹의 오프셋 정보 확인 (Consumer Lag 확인)
   kafka-consumer-groups.sh --bootstrap-server <브로커주소>:9092 --group <그룹명> --describe
   kafka-consumer-groups.sh --bootstrap-server kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092 --group test-group --describe
   ```

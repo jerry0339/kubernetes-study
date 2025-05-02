@@ -36,26 +36,96 @@
 
 ### 2.2. Ingress Controller 배포
 * k8s 1.30 버전과 호환되는 Ingress Controller 4.9.1 버전으로 배포
-  * `k8s-worker-03`노드에 연결한 고정 IP `34.64.121.40`
-    ```sh
-    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+* `k8s-worker-03`노드에 연결한 고정 IP `34.64.121.40`
+* `--set controller.config.proxy-set-headers=chatflow-headers` 옵션으로 chatflow-headers ConfigMap 설정 세팅 (3 항목의 Ingress 배포 확인)
+  ```sh
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 
-    helm repo update
+  helm repo update
 
-    helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-    --version 4.9.1 \
-    --namespace ingress-nginx --create-namespace \
-    --set controller.service.externalIPs[0]=34.64.121.40 \
-    --set controller.service.type=NodePort \
-    --set controller.nodeSelector."kubernetes\.io/hostname"=k8s-worker-03 \
-    --set controller.config.use-forwarded-headers="true"
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --version 4.9.1 \
+  --namespace ingress-nginx --create-namespace \
+  --set controller.service.externalIPs[0]=34.64.54.101 \
+  --set controller.service.type=NodePort \
+  --set controller.nodeSelector."kubernetes\.io/hostname"=k8s-worker-03 \
+  --set controller.config.proxy-set-headers=chatflow-headers \ 
+  --set controller.config.use-forwarded-headers="true"
 
-    # External IP 할당 확인
-    kubectl -n ingress-nginx get svc -o wide
-    ```
-  * ![](2025-04-05-02-59-15.png)
+  # External IP 할당 확인
+  kubectl -n ingress-nginx get svc -o wide
+  ```
+* ![](2025-04-05-02-59-15.png)
 
-<br>
+<br><br>
+
+## 3. Ingress 배포
+* 헤더 설정을 위한 ConfigMap 배포
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: chatflow-headers
+    namespace: chatflow
+  data:
+    Authorization: "$http_authorization" # authorization 헤더
+    Content-Type: "$http_content_type" # content-type 헤더
+  ```
+* Ingress 설정 정보
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      nginx.ingress.kubernetes.io/use-regex: "true" # regex 사용할 수 있도록 설정
+      nginx.ingress.kubernetes.io/rewrite-target: /$2 # rewrite 설정 (/test 참고) 
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"  # 요청 데이터 10MB 제한
+      # CORS 설정 - GET과 POST에 대한 모든 Origin 요청 허용 
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST"
+      # 헤더 설정 - `chatflow-headers` ConfigMap 참고
+      # proxy_set_header 설정 - Authorization와 Content-Type 헤더가 확실히 백엔드 서비스로 전달되도록 보장
+      nginx.ingress.kubernetes.io/proxy-set-headers: "chatflow-headers"
+    name: chatflow-ingress
+    namespace: chatflow
+  spec:
+    ingressClassName: nginx
+    rules:
+    - host: flowchat.shop # 루트 도메인으로 설정, 모든 하위 도메인으로 적용하려면 "*.flowchat.shop" 와 같이 작성
+      http:
+        paths:
+        # 정규식 패턴을 사용한 경로 그룹화 (ex. /(sign-up|sign-in|members|friendships))
+        # /test 경로 rewrite 설정 (접두어 제거) (ex. /test/send/123 -> /send/123 으로 라우팅)
+        # 그 외 경로는 기본적으로 svc-frontend로 라우팅 (/ 경로에 해당)
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: svc-frontend
+              port:
+                number: 3000
+        - path: /(sign-up|sign-in|members|friendships)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: svc-member
+              port:
+                number: 8080
+        - path: /(teams|images)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: svc-team
+              port:
+                number: 8080
+        - path: /test(/|$)(.*)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: svc-test
+              port:
+                number: 8080
+  ```
 
 
 
