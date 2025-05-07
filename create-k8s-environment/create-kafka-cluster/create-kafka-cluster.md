@@ -65,7 +65,7 @@ helm repo update
       - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
       - "listeners=CLIENT://:9092,CONTROLLER://:9093"
       - "listener.security.protocol.map=CLIENT:PLAINTEXT"
-      - "num.partitions=3"       # 자동 생성되는 토픽의 파티션 개수 설정
+      - "num.partitions=6"       # 자동 생성되는 토픽의 파티션 개수 설정
       - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정 (test 환경 용도)
       - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정 (test 환경 용도)
       - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려

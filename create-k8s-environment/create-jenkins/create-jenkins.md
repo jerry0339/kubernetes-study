@@ -124,6 +124,7 @@ systemctl status jenkins
     sudo apt-get update
     sudo apt-get install docker-ce docker-ce-cli containerd.io
     sudo systemctl status docker # 실행 확인
+    sudo chmod 666 /var/run/docker.sock
     ```
 
 * Jenkins가 Docker hub를 사용할 수 있도록 권한 부여
