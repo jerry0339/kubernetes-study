@@ -31,12 +31,17 @@
 <br>
 
 ## Swap 메모리 설정
-* 1GB 할당 예시
+* 2GB 할당 예시
   ```sh
-  sudo fallocate -l 1G /swapfile
+  sudo fallocate -l 2G /swapfile
   sudo chmod 600 /swapfile
   sudo mkswap /swapfile
   sudo swapon /swapfile
+  ```
+* cf. 기존 swap 비활성화 및 삭제
+  ```sh
+  sudo swapoff -v /swapfile  # swap 비활성화
+  sudo rm /swapfile          # swap 파일 삭제
   ```
 
 <br>
@@ -45,5 +50,5 @@
 ```sh
 zramctl # zRAM 상태 확인
 swapon --show # swap 메모리 적용 확인
-free -h # 메모리 전체 사용량 확인
+free -h # 메모리 전체 사용량 확인 - (zRAM + Swap 메모리)로 나옴
 ```
