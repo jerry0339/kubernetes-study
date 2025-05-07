@@ -29,23 +29,24 @@ ls # 설치 점검
   ```
   ```yaml
   # redis-values.yaml 주요 설정
+  password: "your_secure_password"
   global:
-    storageClass: "rook-ceph-block"  # 생성한 PVC의 StorageClass 이름
+    storageClass: "stateful-rook-ceph-block"  # 생성한 PVC의 StorageClass 이름
     redis:
       password: "your_secure_password"
 
   cluster:
-    nodes: 6  # 최소 3 Masters + 3 Replicas
+    nodes: 6  # 최소 3 Masters + 3 Replicas, 3의 배수로 설정(3 Masters + N Replicas)
     replicas: 1
 
   persistence:
     enabled: true
-    size: 8Gi  # PVC 크기와 일치
-    storageClass: "rook-ceph-block"
+    size: 4Gi # Test 환경 기준
+    storageClass: "stateful-rook-ceph-block"
 
   service:
-    type: ClusterIP # default는 Loadbalancer 로 되어 있음 - ingress 추가시 변경해야 할듯
-    ports:
+    type: ClusterIP # default는 Loadbalancer 로 되어 있음?
+    ports: 
       redis: 6379
   ```
 * configmap.yaml 파일 수정 (선택)
