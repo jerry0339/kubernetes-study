@@ -59,7 +59,7 @@
 
 <br><br>
 
-## 3. Ingress 배포
+## 3. Ingress 배포 - (미완 설정)
 * 헤더 설정을 위한 ConfigMap 배포
   ```yaml
   apiVersion: v1

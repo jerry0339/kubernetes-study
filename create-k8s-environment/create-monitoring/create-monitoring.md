@@ -68,8 +68,8 @@ helm repo update
     type: pvc
     accessModes:
       - ReadWriteOnce
-    size: 10Gi
-    # storageClassName: "" # storageClass는 `allowVolumeExpansion: true`인 storageClass로 설정
+    size: 5Gi
+    storageClassName: "general-rook-ceph-block" # storageClass는 `allowVolumeExpansion: true`인 storageClass로 설정
     # existingClaim: "" # 이미 생성된 PVC 사용하는 경우
   EOF
   ```
