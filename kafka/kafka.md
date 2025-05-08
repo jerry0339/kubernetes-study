@@ -156,7 +156,7 @@
       * 일반적인 경우, 해당(1) 옵션을 사용함
     * `all(-1)`: ISR 내 모든 복제본 저장 확인 - 최고 신뢰성, 상대적으로 느림
       * `min.insync.replicas`: ISR 파티션 개수, 1로 설정시 acks = 1 설정과 동일하다고 볼 수 있음. 즉, 1로 설정시 리더 파티션만 적재 확인함
-    * kafka 3.0 이상부터 **all**이 default 설정이지만, **min.insync.replicas = 1**이 default 설정이므로 acks=1과 같은 설정임
+    * kafka 3.0 이상부터 **all**이 default 설정이지만, **min.insync.replicas = 1**이 default 설정이므로 acks=1과 비슷한 설정임
 
 <br>
 
@@ -352,6 +352,87 @@
     * `Kafka Lag Exporter`: Lag의 시간(초단위) 측정과 Kubernetes 환경 통합, 단 다소 높은 리소스 사용량
   * Prometheus 및 Grafana와 통합하여 데이터 시각화도 가능함
 
+<br>
+
+### 5.6. Consumer 코드 예시
+
+#### 5.6.1. 동기 오프셋 커밋 컨슈머 - 자동 커밋
+* auto commit 설정 코드임
+* N초마다 처리할 데이터들을 모아 Commit할 수 있음
+* 코드
+  ```java
+  configs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true); // default 설정도 true임
+  configs.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 60000); // 60초마다 자동 커밋 설정
+
+  KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
+  consumer.subscribe(Arrays.asList(TOPIC_NAME));
+
+  while (true) {
+      // poll 하고나서 데이터 처리후 자동 커밋함
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+      // 데이터 처리
+      for (ConsumerRecord<String, String> record : records) {
+          logger.info("record:{}", record);
+      }
+  }
+  ```
+
+
+#### 5.6.2. 동기 오프셋 커밋 컨슈머 - 레코드 단위 커밋
+* Commit요청시 Consumer와 Broker가 통신하는 과정이 필요하기 때문에, Commit을 너무 자주하면 데이터 처리 속도가 느려지고 Broker에도 부담이 가게 됨
+  * `consumer.commitSync(offset);` 코드에서 브로커로 커밋 요청을 하고 커밋이 완료되었는지 응답을 받아야 하기 때문
+  * 일반적으로는 많이 사용하지 않는 방식임, 초당 100개의 데이터를 처리하는 정도라면 괜찮다고 함
+* 코드
+  ```java
+  // 자동 커밋 false로 설정
+  configs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false); 
+
+  KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
+  consumer.subscribe(Arrays.asList(TOPIC_NAME));
+
+  while (true) {
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+      // 데이터 처리
+      for (ConsumerRecord<String, String> record : records) {
+          logger.info("record:{}", record);
+      }
+      // 자동 커밋과 다르게, 커밋 코드를 작성
+      consumer.commitSync();
+  }
+  ```
+
+#### 5.6.3. 비동기 오프셋 커밋 컨슈머
+* `.commitAsync()` 메소드로 비동기 오프셋 커밋을 하고
+* `OffsetCommitCallback`로 콜백에 대한 처리를 정의할 수 있음
+* 코드
+  ```java
+  // 자동 커밋 false로 설정
+  configs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+  KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
+  consumer.subscribe(Arrays.asList(TOPIC_NAME));
+
+  while (true) {
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+      // 데이터 처리
+      for (ConsumerRecord<String, String> record : records) {
+          logger.info("record:{}", record);
+      }
+      // 동기 오프셋 커밋과 다르게, `.commitAsync()` 메소드를 사용하고 OffsetCommitCallback으로 콜백 정의 해주어야 함
+      consumer.commitAsync(new OffsetCommitCallback() {
+          public void onComplete(Map<TopicPartition, OffsetAndMetadata> offsets, Exception e) {
+              if (e != null)
+                  System.err.println("Commit failed");
+              else
+                  System.out.println("Commit succeeded");
+              if (e != null)
+                  logger.error("Commit failed for offsets {}", offsets, e);
+          }
+      });
+  }
+  ```
+
+
 <br><br>
 
 ## 6. Transaction Producer와 Consumer
@@ -382,7 +463,6 @@
   configs.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed"); // 기본값 - read_uncommitted
   KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
   ```
-
 
 <br><br>
 
@@ -544,5 +624,61 @@
 
 <br>
 
-## 9.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
+## 10.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
 * ![](2025-04-29-19-26-14.png)
+
+<br><br>
+
+## 10. kafka 설정
+
+### 10.1. kafka cluster 설정 (k8s 환경)
+* KRaft 모드 설정 - `process.roles=broker,controller`
+* Kafka KRaft(Kafka Raft) 모드에서 **컨트롤러 쿼럼(Quorum)**을 구성하는 노드(Pod에 해당)들의 목록을 지정
+  * `"node.id=${HOSTNAME##*-}`: HOSTNAME이 k8s-worekr-01 ~ 03일 경우, node.id가 0~2로 할당됨
+  * `controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093, 1@..., 2@..., ...`
+    * FQDN을 직접 명시해서 지정함
+    * `{노드id}@{FQDN}` 형식
+* `num.partitions=6`: 자동 생성되는 토픽의 파티션 개수 설정
+* `num.network.threads=4`: 네트워크 스레드 개수 설정
+  * 브로커가 네트워크에서 요청을 받고 응답을 전송하는 데 사용하는 스레드 수
+* `num.io.threads=6`: I/O 스레드 개수 설정
+  * 네트워크 스레드가 받은 요청을 실제로 처리(디스크 I/O 포함)하는 데 사용하는 스레드 수
+  * **네트워크 스레드가 요청을 큐에 쌓으면, I/O 스레드가 이를 소비(처리)하는 구조**
+* `min.insync.replicas=2`: acks=all 일때, 확인하는 ISR 파티션 개수 설정
+* 설정 예시
+  ```yaml
+  configurationOverrides:
+    - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
+    - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름이 k8s-worker-01~03일 경우 StatefulSet 인덱스(0,1,2) 자동 할당
+    - "controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093,1@kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9093,2@kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9093" # FQDN 직접 명시
+    - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
+    - "listeners=CLIENT://:9092,CONTROLLER://:9093"
+    - "listener.security.protocol.map=CLIENT:PLAINTEXT"
+    - "num.partitions=6"
+    - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정
+    - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정
+    - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
+  ```
+
+### 10.2. Java App 설정
+* spring boot 기반 App의 application.yaml 설정
+* 설정 예시
+```yaml
+spring:
+  kafka:
+    bootstrap-servers: "kafka-controller-headless.kafka.svc.cluster.local:9092"
+    properties:
+      security.protocol: PLAINTEXT # 프로토콜 명시
+      bootstrap.servers.protocol.map: CLIENT:PLAINTEXT
+      client.id: "team-kafka-client" # 클라이언트 ID 지정
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: "team-service-group"
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    streams:
+      application-id: "team-streams-app"
+```
