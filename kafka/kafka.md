@@ -164,7 +164,7 @@
 * cf. 멱등성: 여러번 연산을 수행하더라도 동일한 결과를 나타내는 것
 * 프로듀서가 보내는 데이터의 중복 적재를 막기 위해 프로듀서의 enable.idempotence 옵션을 true로 설정하여 멱등성 프로듀서로써 사용할 수 있다.
   * kafka 3.0 부터 `enable.idempotence = true`가 default
-* 멱등성 프로듀서는 동일한 데이터를 여러번 전송하더라도 카프카 클러스터에 단 한번만 저장되도록 할 수 있다. (Exactly once delivery)
+* 멱등성 프로듀서는 동일한 데이터를 여러번 전송하더라도 카프카 클러스터에 단 한번만 저장되도록 할 수 있다. (Exactly-once delivery)
 
 <br>
 
@@ -312,13 +312,13 @@
   * `session.timeout.ms`과 `heartbeat.interval.ms`의 시간은 설정 가능함 (ms기준 주의)
 * 컨슈머를 코드 상에서 명시적으로 종료하려면, `KafkaConsumer.close()` 메서드를 호출해야 한다.
   * Shutdown Hook & Wakeup 이용하여 컨슈머 종료 시키기
-  * `todo` - 실습 코드
+  * 코드 - `5.6.5.` 항목 참고
 
 <br>
 
 ### 5.5. 멀티 프로세스, 멀티 스레드 컨슈머
 * 기본적으로 하나의 컨슈머는 하나의 스레드로 동작한다.
-* k8s 환경에서는 아래 그림의 그룹 A와 같이 Pod를 여러개 띄워서 멀티 프로세서 환경으로 운영이 가능
+* k8s 환경에서는 아래 그림의 그룹 A와 같이 1개의 스레드를 가지는 프로세스(Pod)를 여러개 띄워서 멀티 프로세서 환경으로 운영이 가능
   * 고가용성이지만 멀티 스레드(B그룹) 방식과 비교하여 자원 소모가 크다
 * `kafka.listener.concurrency` 옵션을 이용하여 오른쪽 그림과 같이 멀티 스레드 환경으로도 운영이 가능하다.
   * 자원 효율성이 높지만 특정 컨슈머에 장애 발생시 다른 컨슈머에도 영향이 감
@@ -432,6 +432,92 @@
   }
   ```
 
+#### 5.6.4. 리밸런스 리스너를 가지는 컨슈머
+* **리밸런스 발생을 감지**하기 위해 카프카 라이브러리는 ConsumerRebalanceListener 인터페이스를 지원
+  * `onPartitionsAssigned()`: 파티션이 할당 완료되어 리밸런스가 끝난 뒤 호출
+  * `onPartitionsRevoked()`: 리밸런스가 시작되기 직전에 호출
+* 코드 예시
+  ```java
+  @Slf4j
+  public class RebalanceListener implements ConsumerRebalanceListener {
+
+      public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+          log.warn("Partitions are assigned : " + partitions.toString());
+
+      }
+
+      public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+          log.warn("Partitions are revoked : " + partitions.toString());
+      }
+  }
+  ```
+  ```java
+  KafkaConsumer<String, String> consumer = new KafkaConsumer<>(configs);
+  // 컨슈머에 위에서 구현한 RebalanceListener 할당
+  consumer.subscribe(Arrays.asList(TOPIC_NAME), new RebalanceListener());
+  while (true) {
+      ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+      for (ConsumerRecord<String, String> record : records) {
+          logger.info("{}", record);
+      }
+  }
+  ```
+
+#### 5.6.5. 컨슈머 App의 안전한 종료
+* 컨슈머 애플리케이션은 안전하게 종료되어야 한다.
+* 정상적으로 종료되지 않은 컨슈머는 세션 타임아웃(`5.4.` 항목 참고)이 발생 할때까지 컨슈머 그룹에 남게된다.
+* KafkaConsumer클래스는 `wakeup()`메서드를 지원하는데, 해당 메서드가 실행된 후 `poll()`메서드 호출시 WakeupException을 발생시킬 수 있다.
+  * JVM이 종료 신호를 받으면 ShutdownThread가 실행되는데 해당 스레드에서 wakeup() 메소드가 호출될 수 있다.
+  * 이후, 메인 루프의 poll()이 WakeupException을 발생시킨다.
+  * 예외를 발생시킨 후에는 자원들을 안전하게 종료시키면 된다.
+* 코드 예시 (Consumer 클래스 전체 코드)
+  ```java
+  public class ConsumerWithSyncOffsetCommit {
+      private final static Logger logger = LoggerFactory.getLogger(ConsumerWithSyncOffsetCommit.class);
+      private final static String TOPIC_NAME = "test";
+      private final static String BOOTSTRAP_SERVERS = "my-kafka:9092";
+      private final static String GROUP_ID = "test-group";
+      private static KafkaConsumer<String, String> consumer;
+
+      public static void main(String[] args) {
+          // ShutdownHook 추가
+          // ShutdownThread는 아래에 정의 - JVM이 종료 신호를 받으면 ShutdownThread가 실행됨
+          Runtime.getRuntime().addShutdownHook(new ShutdownThread());
+
+          Properties configs = new Properties();
+          configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+          configs.put(ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID);
+          configs.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+          configs.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+          configs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+          consumer = new KafkaConsumer<>(configs);
+          consumer.subscribe(Arrays.asList(TOPIC_NAME));
+
+          try {
+              while (true) {
+                  ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+                  for (ConsumerRecord<String, String> record : records) {
+                      logger.info("{}", record);
+                  }
+                  consumer.commitSync();
+              }
+          } catch (WakeupException e) {
+              logger.warn("Wakeup consumer");
+          } finally {
+              logger.warn("Consumer close");
+              consumer.close(); // 안전한 종료
+          }
+      }
+
+      static class ShutdownThread extends Thread {
+          public void run() {
+              logger.info("Shutdown hook");
+              consumer.wakeup(); // wakeup() 메소드 호출
+          }
+      }
+  }
+  ```
 
 <br><br>
 
@@ -550,25 +636,52 @@
 * 월간 통계와 같이 일정 기간동안 수집된 데이터를 한번에 처리하여 `완결된` 데이터 형태가 Batch 데이터이다.
 
 #### 7.4.3. KStream, KTable, GlobalKTable ?
-* Streams DSL에서는 스트림 데이터 처리를 위해 KStream, KTable, GlobalKTable이라는 세 가지 핵심 추상화를 제공
+* Streams DSL에는 스트림 데이터 처리를 위해, 레코드의 흐름을 추상화한 3가지 개념인 KStream, KTable, GlobalKTable이 있다.
+  * 해당 3가지 개념은 Streams DSL에서만 사용되는 개념으로 각각의 특성에 맞게 데이터를 가공하고 조회할 수 있다.
+  * ex. KTable 이용시 key에 대한 최신 데이터를 추가, 조회가 가능
 * `KStream`
   * 이벤트 스트림을 연속적인 레코드 시퀀스로 모델링
-  * 모든 레코드를 개별 처리하며 상태 비저장(stateless) 연산에 적합
+  * 모든 레코드를 개별 처리하며 stateless 연산에 적합
+  * **컨슈머로 토픽을 구독하여 데이터를 하나씩 처리하는 것과 동일**하다고 보면 됨
+  * 따라서 Topic의 모든 레코드를 조회할 수 있다.
+  * ![](2025-05-09-13-35-25.png)
 * `KTable`
-  * 키 기반의 최신 상태를 추적하는 변경 로그
-  * 동일 키에 대한 최신 값만 유지(upsert 방식)
+  * KTable은 **메시지 키를 기준으로 최신 값만 유지**하는 방식(upsert 방식)
+  * KTable은 Streams App의 Task내에 matrialized view로 저장되어 토픽으로 활용될 수 있다.
+  * matrialized view 란?
+    * 더 빠른 데이터 검색을 위해 여러 기존 테이블의 데이터를 결합하여 생성되는 중복 데이터 테이블
+    * Streams App의 Task(스레드) 내에 RocksDB 같은 Key-Value Store가 생성되어, KTable의 상태가 저장됨
+    * 이 로컬 스토어가 materialized view에 해당하며 필요할 때 즉시 조회가 가능
+    * 즉, 토픽의 최신 상태를 Key-Value 형태로 메모리 또는 디스크에 저장해두는 것임
+  * 아래 이미지를 보면 KStream 방식과는 다르게 (anderson, 2)라는 레코드 추가 처리시 anderson 키에 대한 값을 2로 업데이트하여 최신 값 유지
+    * cf. 값이 null이면 해당 키의 데이터는 삭제로 간주됨
+  * 즉, topic의 데이터를 key-value store처럼 사용하는 것이 KTable이고
+  * KTable로 데이터 조회시 key에 대한 최신의 레코드의 데이터를 조회할 수 있다.
+  * ![](2025-05-09-13-36-34.png)
+* `코파티셔닝 (co-partitioning)` - KStream과 KTable의 Join
+  * **KStream과 KTable을 조인**하려면 반드시 코파티셔닝되어 있어야 한다.
+  * 코파티셔닝이란 토픽들이 아래의 조건을 만족할 때, 해당 토픽들은 코파티셔닝이라고 볼 수 있다.
+    * 동일한 파티션 수
+    * 동일한 파티셔닝 전략 (`4.1.`와 `4.4.2.` 참고)
+      * cf. 파티셔너 - key에 따라서 어느 Partition으로 갈지 정해주는 역할을 함
+  * 코파티셔닝을 만족한다면 **특정 key에 대한 데이터가 동일한 파티션에 들어가는 것**을 보장할 수 있고,
+    * Join대상 토픽들로부터, **동일한 메시지 키를 가진 데이터가 동일한 태스크에 들어가는 것을 보장**할 수 있다.
+  * ![](2025-05-09-14-08-07.png)
+  * 코파티셔닝을 만족하지 않는다면?
+    * 조인 대상 토픽들의 파티션에서 동일한 key에 대한 데이터를 찾을 수 없기 때문에 Join 태스크에서 정상적인 데이터 처리가 불가능하며,
+    * `TopologyException`이 발생함
+    * ![](2025-05-09-14-18-03.png)
 * `GlobalKTable`
-  * 모든 인스턴스에 전체 데이터 복사본을 저장하는 전역 테이블
-  * 조인 시 파티션 재배치 불필요
-* 조인을 수행하려는 두 토픽은 코파티셔닝이 보장되어 있어야 한다. 그렇지 않은 경우에 Join을 수행했을시 TopologyException이 발생 가능하다.
-* 코파티셔닝? 두 개 이상의 토픽이 아래의 조건을 만족할 때 코파티셔닝이 됨으로 간주
-  * 동일 키 사용
-  * 동일 파티션 수
-  * 동일 파티셔닝 전략
-    * ex. UniformStickyPartitioner또는 custom Partitioner 구현하여 사용
-    * 파티셔너 - key에 따라서 어느 Partition으로 갈지 정해주는 역할
-
-#### 7.4.4. Streams dsl 라이브러리 추가
+  * 코파티셔닝 되지 않은 KStream과 KTable을 Join하여 데이터를 처리하고 싶다면, KTable을 GlobalKTable로 선언하여 사용하면 된다.
+  * GlobalKTable로 정의된 데이터는 스트림즈 Application의 모든 태스크에 동일하게 공유된다.
+    * 즉, 전체 데이터 복사본을 저장하는 전역 테이블인 것
+  * GlobalKTable의 모든 데이터가 태스크에 공유되기 때문에, 조인 시 코파티셔닝이 불필요하다.
+  * 하지만 어떤 토픽의 크기가 매우 커서 GlobalKTable이 비대해 지는 경우, 스트림즈 App의 태스크마다 GlobalKTable의 데이터를 가지고 있는 형태이기 때문에,
+    * 매우 큰 용량이 필요하고 스트림즈 App 자체에 큰 부담이 될 수도 있다.
+    * 따라서 토픽의 데이터가 크지 않은 경우이거나, Topic의 데이터 Retention 기간을 설정하여 GlobalKTable을 사용하는 것이 일반적
+  * ![](2025-05-09-15-26-44.png)
+  
+#### 7.4.4. Streams DSL 라이브러리 추가
 * 버전 확인
   * 설치된 kafka 버전 확인
   * kafka 4.0.0 사용중이므로 streams dsl 4.0.0 이상 버전을 사용해야 함
@@ -579,6 +692,34 @@
     implementation 'org.apache.kafka:kafka-streams:4.0.0'
   }
   ```
+
+#### 7.4.5. Stream DSL 코드 예시
+* KStream 코드 예시
+  * `토픽1`로부터 레코드를 가져오고 필터링한 데이터를 `토픽2`에 저장
+  ```java
+  // 소스 프로세서(Source Processor)
+  StreamsBuilder builder = new StreamsBuilder();
+  KStream<String, String> streamLog = builder.stream("토픽1");
+
+  // KStream<String, String> filteredStream = streamLog.filter(
+  //         (key, value) -> value.length() > 5);
+  // filteredStream.to(STREAM_LOG_FILTER);
+  // 스트림 프로세서(Stream Processor) & 싱크 프로세서(Sink Processor)
+  streamLog.filter((key, value) -> value.length() > 5).to("토픽2");
+
+  // Kafka Streams 실행 (props는 생략함..)
+  KafkaStreams streams;
+  streams = new KafkaStreams(builder.build(), props);
+  streams.start();
+  ```
+* KTable 코드 예시
+```java
+
+```
+* GlobalKTable 코드 예시
+```java
+
+```
 
 <br><br>
 
