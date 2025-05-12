@@ -1,4 +1,4 @@
-## Kafka local 환경(window)에서 실행하기
+## cf. Kafka local 환경(window)에서 실행하기
 * [참고링크](https://soonmin.tistory.com/22)
 * 실행 스크립트 참고
   ```sh
@@ -15,6 +15,8 @@
 <br><br>
 
 ## 1. 카프카 구조
+* 카프카란?
+  * 실시간으로 스트리밍 데이터를 수집하고 처리하는 데 최적화된 분산 데이터 스토어
 * 프로듀서
   * 프로듀서는 메시지를 생성하여 메시지 큐에 전달하는 역할
   * 프로듀서는 동기식 또는 비동기식으로 메시지를 전송할 수 있음
@@ -154,8 +156,8 @@
     * `0`: 확인하지 않음 - 최고 속도, 데이터 유실 위험 큼, 데이터 유실 발생하더라도 전송 속도가 중요한 경우 사용
     * `1`: 리더 파티션 저장만 확인 - 리더 파티션에 적재되지 않았다면, 적재될 때까지 재시도 할 수 있다. 하지만 데이터 유실 가능
       * 일반적인 경우, 해당(1) 옵션을 사용함
-    * `all(-1)`: ISR 내 모든 복제본 저장 확인 - 최고 신뢰성, 상대적으로 느림
-      * `min.insync.replicas`: ISR 파티션 개수, 1로 설정시 acks = 1 설정과 동일하다고 볼 수 있음. 즉, 1로 설정시 리더 파티션만 적재 확인함
+    * `all(-1)`: 모든 ISR 복제 완료 시 승인 - 최고 신뢰성, 상대적으로 느림
+      * `min.insync.replicas`: 최소 동기화 복제 파티션(ISR) 개수, 1로 설정시 acks = 1 설정과 동일하다고 볼 수 있음. 즉, 1로 설정시 리더 파티션만 적재 확인함
     * kafka 3.0 이상부터 **all**이 default 설정이지만, **min.insync.replicas = 1**이 default 설정이므로 acks=1과 비슷한 설정임
 
 <br>
@@ -600,14 +602,47 @@
 
 <br>
 
-### 7.4. Streams DSL(Domain Specific Language)
+### 7.4. Streams DSL(Domain Specific Language)란?
 * [참고 링크](https://goslim56.tistory.com/29)
-* 미리 제공되는 함수들을 이용하여 토폴로지를 정의하는 방식
+* 미리 제공되는 함수들을 이용하여 **토폴로지를 정의**하는 방식
 * 이벤트 기반 데이터 처리에 필요한 기능들을 제공하기 때문에 스트림즈를 구현하기 편함
 * 대부분의 변환 로직을 어렵지 않게 개발할 수 있도록 스트림 프로세싱에 쓰일만한 다양한 기능들을 자체 API로 제공
   * 이벤트 기반 데이터 처리를 할 때 필요한 다양한 기능들(map, join, window 등)을 대부분 제공
 * application id로 Streams App을 구분하여 데이터 작업을 처리함
   * `application.id`: consumer의 Group Id와 동일한 역할로 Streams App을 구분하기 위한 고유 Id에 해당
+* Streams DSL에는 스트림 데이터 처리를 위한, 추상화 개념인 KStream, KTable, GlobalKTable이 있음
+  * `KStream, KTable, GlobalKTable`으로 구현된 Stream DSL 코드는 하나의 Topology 객체로 통합됨
+  * spring boot를 예시로, Stream DSL 코드로 구현한 Bean객체가 여러개라도 Kafka Streams에 의해 하나의 Topology로 통합
+  * 따라서, 모든 스트림 처리가 같은 Kafka Streams 인스턴스에서 관리될 수 있음
+* Stream DSL 로직은 언제 동작?
+  * Stream DSL 로직에 사용된 Topic을 구독하여, 해당 Topic에 메시지가 생성(브로커 Commit)되면 해당 Stream 처리 로직이 자동 트리거
+  * 코드 예시
+    ```java
+    @Service
+    public class OrderStreamService {
+        // ...
+
+        @Bean
+        public KStream<String, String> orderJoinAddressStream(StreamsBuilder streamsBuilder) {
+            KTable<String, String> addressTable = streamsBuilder.table(ADDRESS_TABLE); // ADDRESS_TABLE을 KTable로 로드
+            KStream<String, String> orderStream = streamsBuilder.stream(ORDER_STREAM); // ORDER_STREAM을 KStream으로 로드
+            KStream<String, String> joinedStream = orderStream.join(
+                addressTable,
+                (order, address) -> order + " send to " + address
+            );
+            
+            joinedStream.to(ORDER_JOIN_STREAM);
+            return joinedStream;
+        }
+
+        @Bean
+        public KStream<String, String> filterLogStream(StreamsBuilder streamsBuilder) {
+            // ....
+        }
+
+        // ...
+    }
+    ```
 
 #### 7.4.1. Streams DSL의 stateful 프로세싱, stateless 프로세싱
 * Streams DSL는 실시간 데이터 처리를 위해 Stateful과 Stateless 연산(API)을 제공
@@ -625,20 +660,11 @@
   * branch: 조건별로 스트림 분기 - `KStream<String, String>[] branches = stream.branch(pred1, pred2)`
   * merge: 여러 스트림을 하나로 병합 - `stream1.merge(stream2)`
 
-#### 7.4.2. stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
-* ex. 주문량에 대해 1시간 구간으로 windowed stateful 프로세싱을 사용한다면?
-  * 해당 데이터는 1시간 단위의 실시간(Stream) 데이터에 해당
-  * 1시간 사이에 증분 업데이트(새로 추가되거나 수정된 데이터만 처리)된 결과가, Kafka 토픽에 스트림 형태로 저장되는 것
-  * [09:00 ~ 10:00 매출 100만원], [10:00 ~ 11:00 매출 150만원], [11:00 ~ 12:00 매출 80만원], ...
-* 따라서 해당 데이터는 1시간 단위의 스트림 데이터로 볼 수 있음
-* 해당 데이터를 집계하여 월별 매출 데이터를 뽑아낸다면? Batch데이터라고 할 수 있음
-* 즉, 실시간으로 데이터 발생 즉시 처리되며 `지속적`으로 들어오는 데이터 형태가 Stream 데이터이며
-* 월간 통계와 같이 일정 기간동안 수집된 데이터를 한번에 처리하여 `완결된` 데이터 형태가 Batch 데이터이다.
-
-#### 7.4.3. KStream, KTable, GlobalKTable ?
+#### 7.4.2. KStream, KTable, GlobalKTable ?
 * Streams DSL에는 스트림 데이터 처리를 위해, 레코드의 흐름을 추상화한 3가지 개념인 KStream, KTable, GlobalKTable이 있다.
   * 해당 3가지 개념은 Streams DSL에서만 사용되는 개념으로 각각의 특성에 맞게 데이터를 가공하고 조회할 수 있다.
   * ex. KTable 이용시 key에 대한 최신 데이터를 추가, 조회가 가능
+  * consumer가 트리거 되는 방법과 같이, Stream 처리에 사용된 Topic에 메시지가 Commit되면 해당 Stream 로직이 자동 트리거
 * `KStream`
   * 이벤트 스트림을 연속적인 레코드 시퀀스로 모델링
   * 모든 레코드를 개별 처리하며 stateless 연산에 적합
@@ -680,6 +706,12 @@
     * 매우 큰 용량이 필요하고 스트림즈 App 자체에 큰 부담이 될 수도 있다.
     * 따라서 토픽의 데이터가 크지 않은 경우이거나, Topic의 데이터 Retention 기간을 설정하여 GlobalKTable을 사용하는 것이 일반적
   * ![](2025-05-09-15-26-44.png)
+
+#### 7.4.3. 코파티셔닝을 만족하지 않은 두 Topic을 join 하는 방법
+1. GlobalKTable 사용
+2. 리파티셔닝 (**파티션 개수**만 다른 경우에 해당)
+   * 파티션 개수를 맞춘 새로운 토픽 하나를 생성
+   * 메시지 produce할때, 해당 토픽에 
   
 #### 7.4.4. Streams DSL 라이브러리 추가
 * 버전 확인
@@ -697,33 +729,104 @@
 * KStream 코드 예시
   * `토픽1`로부터 레코드를 가져오고 필터링한 데이터를 `토픽2`에 저장
   ```java
-  // 소스 프로세서(Source Processor)
+  // props 정의는 생략...
+  // Source Processor
   StreamsBuilder builder = new StreamsBuilder();
   KStream<String, String> streamLog = builder.stream("토픽1");
-
+  
+  // Stream Processor
   // KStream<String, String> filteredStream = streamLog.filter(
   //         (key, value) -> value.length() > 5);
   // filteredStream.to(STREAM_LOG_FILTER);
-  // 스트림 프로세서(Stream Processor) & 싱크 프로세서(Sink Processor)
   streamLog.filter((key, value) -> value.length() > 5).to("토픽2");
 
-  // Kafka Streams 실행 (props는 생략함..)
+  // Sink Processor
+  KafkaStreams streams;
+  streams = new KafkaStreams(builder.build(), props);
+  streams.start(); // Kafka Streams 실행
+  ```
+* KStream과 KTable의 Join 코드 예시
+  * 아래 코드가 정상 동작하기 위해서는 ADDRESS_TABLE 토픽과 ORDER_STREAM 토픽은 코파티셔닝을 만족해야 함
+  ```java
+  // Source Processor
+  StreamsBuilder builder = new StreamsBuilder();
+  KTable<String, String> addressTable = builder.table(ADDRESS_TABLE); // ADDRESS_TABLE을 KTable로 로드
+  KStream<String, String> orderStream = builder.stream(ORDER_STREAM); // ORDER_STREAM을 KStream으로 로드
+
+  // Stream Processor - KStream과 KTable을 조인하고 결과를 ORDER_JOIN_STREAM 토픽으로 전송
+  orderStream.join(addressTable, (order, address) -> order + " send to " + address).to(ORDER_JOIN_STREAM);
+
+  // Sink Processor
   KafkaStreams streams;
   streams = new KafkaStreams(builder.build(), props);
   streams.start();
   ```
-* KTable 코드 예시
-```java
+* GlobalKTable이용한 join 예시
+  * 
+  ```java
+  StreamsBuilder builder = new StreamsBuilder();
 
-```
-* GlobalKTable 코드 예시
-```java
+  // Source Processor
+  GlobalKTable<String, String> addressGlobalTable = builder.globalTable(ADDRESS_GLOBAL_TABLE); // GlobalKTable로 Source Processor를 가져옴
+  KStream<String, String> orderStream = builder.stream(ORDER_STREAM); // ORDER_STREAM을 KStream으로 로드
 
-```
+  orderStream.join(addressGlobalTable,
+                  (orderKey, orderValue) -> orderKey, // join위한 키
+                  (order, address) -> order + " send to " + address)
+          .to(ORDER_JOIN_STREAM);
+
+  KafkaStreams streams;
+  streams = new KafkaStreams(builder.build(), props);
+  streams.start();
+  ```
 
 <br><br>
 
-## 8. Kafka Connect
+## 8. Apache Kafka 시스템에 대한 고찰
+* kafka를 공부하면서 궁금하거나 헷갈렸던 내용들 정리
+
+<br>
+
+### 8.1. Kafka Streams에서, stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
+* Stream과 Batch데이터의 구분이 헷갈렸음..
+* Streams는 어떤 Topic에 데이터가 commit되면 해당 메시지를 소비하여 재가공하고 새로운 topic에 저장한다.
+* ex. 주문량에 대해 1시간 구간으로 windowed stateful 프로세싱을 사용한다면?
+  * 해당 데이터는 1시간 단위의 실시간(Stream) 데이터에 해당
+  * 1시간 사이에 증분 업데이트(새로 추가되거나 수정된 데이터만 처리)된 결과가, Kafka 토픽에 스트림 형태로 저장되는 것
+  * [09:00 ~ 10:00 매출 100만원], [10:00 ~ 11:00 매출 150만원], [11:00 ~ 12:00 매출 80만원], ...
+* 따라서 해당 데이터는 1시간 단위의 스트림 데이터로 볼 수 있음
+* 해당 데이터를 집계하여 월별 매출 데이터를 뽑아낸다고 하면? Batch데이터라고 할 수 있음
+* 즉, 실시간으로 데이터 발생 즉시 처리되며 `지속적`으로 들어오는 데이터 형태가 Stream 데이터이며
+* 월간 통계와 같이 일정 기간동안 수집된 데이터를 한번에 처리하여 `완결된` 데이터 형태가 Batch 데이터
+
+<br>
+
+### 8.2. Kafka를 이용하면 데이터 조회시 동시성 이슈를 해결할 수 있는걸까?
+* Apache Kafka의 핵심 설계 원칙에 기반하여 동시성 문제가 거의 발생하지 않는다고 볼 수 있다.
+* 아래와 같은 Kafka Topic의 특성 때문
+  * 동일 Partition내 레코드는 항상 **단일 스레드에서 순차 처리**
+  * 동일 키는 항상 동일 파티션으로 할당 (같은 파티셔닝 전략의 경우)
+  * 트랜잭션 지원
+    * isolation.level=read_committed 의 기본 설정으로 커밋된 트랜잭션만 노출
+    * 중간에 실패한 트랜잭션 레코드는 롤백 처리
+  * 추가로 Streams DSL의 KTable의 경우, 파티션별 상태 저장소(RocksDB)가 독립적으로 관리됨
+* 하지만, 아래와 같은 상황에서 동시성 이슈가 발생할 수 있다.
+  * 코파티셔닝을 만족하지 않은 Topic을 join하는 경우
+  * 외부 시스템 연동하는 경우
+    * ex. 외부 DB까지 Kafka의 트랜잭션이 보장되지 않음
+  * 리더 파티션이 위치한 브로커의 장애 상황에서, ISR 외 팔로워가 리더로 승격되는 경우
+    * `unclean.leader.election.enable=false`의 default 설정으로 비ISR 팔로워가 리더로 선출되지않도록 하는 설정이 있지만
+    * `acks=all`, `min.insync.replicas=2` 설정을 통해 ISR을 최소 2개를 만족하도록 해주어야 함.
+      * 1개의 브로커 장애를 허용
+
+<br>
+
+### 8.3. DB 없이 Kafka만 사용하는 것은 어떨까?
+* Kafka가 데이터 저장소의 역할을 충분히 수행할 수 있을까?
+
+<br><br>
+
+## 9. Kafka Connect
 * Kafka Connect는 데이터 파이프라인 생성시 반복 작업을 줄이고 효율적인 전송을 하기 위한 애플리케이션이다.
   * DB나 FS와 연결하는데 사용함
     * ex. DB의 데이터를 Topic에 저장하고자 할때, DB에서 select하고 Topic에 Produce하는 과정을 Template으로 만들어 반복적으로 사용할 수 있음
@@ -742,7 +845,7 @@
 
 <br>
 
-### 8.1. Kafka Connect를 실행하는 방법
+### 9.1. Kafka Connect를 실행하는 방법
 * 단일 모드 커넥트 (Standalone Mode Kafka Connect)
   * 개발 환경 구성 용도
 * 분산 모드 커넥트 (Distributed Mode Kafka Connect)
@@ -751,7 +854,7 @@
 
 <br><br>
 
-## 9. Kafka Streams vs Kafka Connect
+## 10. Kafka Streams vs Kafka Connect
 * `Kafka Streams`는 윈도우 연산, 조인(Join), 집계(Aggregation) 등 **상태를 유지**해야 하는 복잡한 연산에 적합하며,
   * filter, map, branch 등 단순 변환 작업에 해당하는 Stateless 처리도 가능하다.
   * 즉, Kafka Streams는 Stateful 처리에 최적화되어 있지만, Stateless 작업도 수행 가능
@@ -765,14 +868,14 @@
 
 <br>
 
-## 10.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
+### 10.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
 * ![](2025-04-29-19-26-14.png)
 
 <br><br>
 
-## 10. kafka 설정
+## 11. kafka 설정
 
-### 10.1. kafka cluster 설정 (k8s 환경)
+### 11.1. kafka cluster 설정 (k8s 환경)
 * KRaft 모드 설정 - `process.roles=broker,controller`
 * Kafka KRaft(Kafka Raft) 모드에서 **컨트롤러 쿼럼(Quorum)**을 구성하는 노드(Pod에 해당)들의 목록을 지정
   * `"node.id=${HOSTNAME##*-}`: HOSTNAME이 k8s-worekr-01 ~ 03일 경우, node.id가 0~2로 할당됨
@@ -801,7 +904,7 @@
     - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
   ```
 
-### 10.2. Java App 설정
+### 11.2. Java App 설정
 * spring boot 기반 App의 application.yaml 설정
 * 설정 예시
 ```yaml
