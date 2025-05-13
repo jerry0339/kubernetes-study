@@ -162,11 +162,15 @@
 
 <br>
 
-### 4.3. 멱등성 프로듀서 (enable.idempotence 옵션)
+### 4.3. 멱등성 프로듀서 (Idempotence Producer)
 * cf. 멱등성: 여러번 연산을 수행하더라도 동일한 결과를 나타내는 것
 * 프로듀서가 보내는 데이터의 중복 적재를 막기 위해 프로듀서의 enable.idempotence 옵션을 true로 설정하여 멱등성 프로듀서로써 사용할 수 있다.
   * kafka 3.0 부터 `enable.idempotence = true`가 default
 * 멱등성 프로듀서는 동일한 데이터를 여러번 전송하더라도 카프카 클러스터에 단 한번만 저장되도록 할 수 있다. (Exactly-once delivery)
+* 어떻게 가능할까?
+  * 멱등성 프로듀서는 기본 프로듀서와는 달리 레코드를 브로커로 전송할때, PID(Producer Unique Id)와 시퀀스 넘버(Sequence Number)를 함께 전달
+  * 브로커는 PID와 Seq를 가지고 있다가 중복 적재 요청이 왔을때,적재되지 않도록 할 수 있다.
+* ![](2025-05-13-14-09-24.png)
 
 <br>
 
@@ -325,6 +329,8 @@
 * `kafka.listener.concurrency` 옵션을 이용하여 오른쪽 그림과 같이 멀티 스레드 환경으로도 운영이 가능하다.
   * 자원 효율성이 높지만 특정 컨슈머에 장애 발생시 다른 컨슈머에도 영향이 감
 * ![](2025-05-01-22-32-55.png)
+* 추가로, 1개의 애플리케이션에 1개 컨슈머 스레드를 실행시키고,
+* 해당 애플리케이션이 실행되는 pod를 여러개 운영하는 방식이 실무에서 가장 많이 사용되는 방식이라고 함
 
 <br>
 
@@ -524,7 +530,10 @@
 <br><br>
 
 ## 6. Transaction Producer와 Consumer
-* 다수의 파티션에 데이터를 저장해야 하는 경우, `Transaction Producer`를 사용하여 하나의 Transaction으로 묶어서 처리할 수 있다.
+* Transaction Producer와 Consumer를 설명하기 전에,
+  * Transaction Producer는 내부적으로 Idempotence Producer와 동일한 로직으로 운영되며,
+  * 트랜잭션 레코드(시작/커밋/어보트 등)를 추가로 전송
+* 다수의 파티션에 데이터를 저장해야 하는 경우, `Transaction Producer`를 사용하여 하나의 Transaction으로 묶어서(atomic단위로 묶어서) 처리할 수 있다.
   * ![](2025-05-01-19-30-38.png)
 * 이때, `Transaction Consumer`는 트랜잭션이 완료되어 Commit된 데이터를 확인하고 데이터를 가져간다.
   * 아래의 그림을 보면, 트랜잭션 컨슈머가 파티션의 트랜잭션 레코드 Commit 기록을 확인하고 데이터를 가져가는 모습
@@ -540,7 +549,7 @@
   producer.beginTransaction(); // 트랜잭션 시작
   // 하나의 트랜잭션내에 여러 토픽의 데이터 전송 가능
   producer.send(new ProducerRecord<>(TOPIC_1, "전달하는 메시지 값 1"));
-  producer.send(new ProducerRecord<>(TOPIC_2, "전달하는 메시지 값 2")); 
+  producer.send(new ProducerRecord<>(TOPIC_2, "전달하는 메시지 값 2"));
   producer.commitTransaction(); // 트랜잭션 완료(커밋)
 
   producer.close(); // 안전한 프로듀서 종료
@@ -782,13 +791,14 @@
 
 <br><br>
 
-## 8. Apache Kafka 시스템에 대한 고찰
+## 8. Apache Kafka에 대한 고찰
 * kafka를 공부하면서 궁금하거나 헷갈렸던 내용들 정리
 
 <br>
 
 ### 8.1. Kafka Streams에서, stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
-* Stream과 Batch데이터의 구분이 헷갈렸음..
+> Stream 데이터와 Batch 데이터의 차이?
+
 * Streams는 어떤 Topic에 데이터가 commit되면 해당 메시지를 소비하여 재가공하고 새로운 topic에 저장한다.
 * ex. 주문량에 대해 1시간 구간으로 windowed stateful 프로세싱을 사용한다면?
   * 해당 데이터는 1시간 단위의 실시간(Stream) 데이터에 해당
@@ -801,7 +811,9 @@
 
 <br>
 
-### 8.2. Kafka를 이용하면 데이터 조회시 동시성 이슈를 해결할 수 있는걸까?
+### 8.2. Kafka를 이용한 동시성 이슈 해결
+> Kafka를 이용하면 데이터 조회시 동시성 이슈를 완전히 해결할 수 있는걸까?
+
 * Apache Kafka의 핵심 설계 원칙에 기반하여 동시성 문제가 거의 발생하지 않는다고 볼 수 있다.
 * 아래와 같은 Kafka Topic의 특성 때문
   * 동일 Partition내 레코드는 항상 **단일 스레드에서 순차 처리**
@@ -815,14 +827,100 @@
   * 외부 시스템 연동하는 경우
     * ex. 외부 DB까지 Kafka의 트랜잭션이 보장되지 않음
   * 리더 파티션이 위치한 브로커의 장애 상황에서, ISR 외 팔로워가 리더로 승격되는 경우
+    * 동시성 이슈를 넘어, 데이터 유실 가능성이 존재
     * `unclean.leader.election.enable=false`의 default 설정으로 비ISR 팔로워가 리더로 선출되지않도록 하는 설정이 있지만
     * `acks=all`, `min.insync.replicas=2` 설정을 통해 ISR을 최소 2개를 만족하도록 해주어야 함.
-      * 1개의 브로커 장애를 허용
+      * `min.insync.replicas=2` 설정시 1개의 브로커 장애를 허용할 수 있음
 
 <br>
 
 ### 8.3. DB 없이 Kafka만 사용하는 것은 어떨까?
-* Kafka가 데이터 저장소의 역할을 충분히 수행할 수 있을까?
+> Kafka가 데이터 저장소의 역할을 충분히 수행할 수 있을까?
+
+* Kafka는 고성능, 고가용성, 확장성을 갖춘 **메시지 브로커**로, 메시지를 **일시적으로 저장**하고 여러 **소비자에게 전달**하는 역할을 한다.
+  * 즉, 메시지를 잘 전달하기 위한 목적으로 사용되는 것임
+* Kafka를 데이터 저장소를 목적으로 사용할 경우, 단점 및 한계
+  * 장기 저장에 적합하지 않음
+    * Kafka는 기본적으로 메시지를 일시적으로 저장(Retention 기반)하는 형태로 사용된다.
+    * 애초에 kafka는 영구 저장소로는 설계되지 않았다.
+  * 검색에 적합하지 않음
+    * 빠른 검색(ex. index)이나 복잡한 쿼리로 검색이 가능한 DB와 비교하여,
+    * Kafka는 Key기반 단순 검색만 가능
+  * Random Access에 비효율적임
+    * Kafka는 append-only 로그 구조로 설계되어 특정 위치의 데이터를 직접 탐색할 때 성능 저하 발생
+      * ex. 특정 토픽의 3일 전의 메시지 검색은 토픽 전체 데이터 스캔이 필요함
+    * DB는 인덱싱으로 O(1) 또는 O(log n) 시간 복잡도로 데이터에 접근이 가능
+  * 운영 복잡성
+    * Kafka만을 데이터 소스로 사용할 경우, 장애 복구, 데이터 정합성 등과 관련하여 운영 비용이 증가할 수 있다.
+    * Kafka를 데이터베이스처럼 운영하려면 높은 전문성이 필요하기 때문에 비용이 클듯..
+* 따라서 `최종 데이터 저장`에는 별도의 데이터베이스를 사용하는 것이 좋은듯
+
+<br>
+
+### 8.4. 중복 데이터 처리를 방지하는 방법
+> 어떻게 신뢰성 있는 카프카 애플리케이션을 만들 수 있을까?
+>
+> Producer와 Consumer의 Exactly-Once 데이터 처리가 가능할까?
+
+* 참고 글 - [Kafka Streams 실시간 스트리밍 데이터 처리: Exactly-Once](https://velog.io/@youngerjesus/Kafka-%EC%8B%A4%EC%8B%9C%EA%B0%84-%EC%8A%A4%ED%8A%B8%EB%A6%AC%EB%B0%8D-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EC%B2%98%EB%A6%AC-Exactly-Once)
+* 참고 영상 - [신뢰성 있는 카프카 애플리케이션을 만드는 3가지 방법](https://www.youtube.com/watch?v=7_VdIFH6M6Q)
+* ![](2025-05-13-13-35-45.png)
+* kafka에서 프로듀서는 레코드를 생성하여 브로커(topic의 파티션...)에 전달하고,
+* 컨슈머는 Topic으로부터 레코드를 가져와(offset기반...) 순차적으로 데이터 처리를 하는데
+* 어떻게 데이터가 잘 전달되고 소비되었는지 확인할 수 있을까?
+  * producer는 레코드를 전송한 이후에, acknowledgement 메시지를 받아 데이터가 잘 적재되었는지 확인 (위 이미지 참고)
+  * consumer는 가져온 레코드를 처리한 이후에, commit 메시지를 전달하여 해당 레코드를 소비했음을 전달
+* **네트워크 또는 Kafka App에 장애가 생겼을 경우, 데이터의 중복 적재/처리가 일어날 수 있다.**
+  * `producer`가 네트워크 문제로 acknowledgement 메시지를 전달받지 못한다면
+    * 동일 레코드가 다시 전송되어 중복 적재로 이어짐
+  * `consumer`의 offset commit이 이루어지지 않은 상태에서 컨슈머 재시작 또는 리밸런싱 발생 시
+    * 재시작된 Consumer 또는 파티션을 새로 할당받은 Consumer가 해당 레코드를 다시 읽어 데이터 중복 처리 발생
+
+#### 8.4.1. Producer의 데이터 중복 적재를 방지
+* 데이터의 중복 적재는 어떻게 일어날 수 있을까?
+  * producer가 레코드 전달 이후, 네트워크 문제로 acknowledgement 메시지를 전달받지 못했을때,
+  * producer는 레코드가 정상적으로 적재되지 않았다고 판단하여 다시 적재 요청을 할 수 있고, 이는 데이터의 중복 적재로 이어질 수 있다.
+* 해당 문제는 멱등성 프로듀서(`Idempotence Producer`)를 이용하여 해결한다. (exactly-once)
+  * 멱등성 producer가 브로커에게 데이터 적재 요청시 PID와 Seq 데이터를 함께 전송하여, 브로커에 중복 적재 요청이 왔을때 적재되지 않도록 할 수 있다.
+  * 자세한 내용은 `4.3.` 항목 확인
+* 하나의 Producer에서 여러 토픽에 데이터 적재가 필요한 경우, `Transaction Producer`를 이용하여 수도 있다.
+  * 여러 파티션에 데이터를 전송해야 하는 경우, 특정 데이터의 전송이 실패할 수도 있는데
+  * Transaction Producer를 사용하여 하나의 Transaction으로 묶어서(atomic단위로 묶어서) 처리 가능
+    * 메시지 전송 모두 성공하거나 실패하도록 처리 가능
+  * Transaction Producer 사용시 필요한 설정은 아래와 같다.
+    * `enable.idempotence = true` (Transaction Producer는 멱등성 프로듀서 기반이기 때문)
+    * `transactional.id = "unique-id"` (id는 클러스터내에 유일해야만 함)
+
+#### 8.4.2. Consumer의 데이터 중복 처리를 방지
+* Consumer의 데이터 중복 처리는 어떻게 일어날 수 있을까?
+  * offset commit이 이루어지지 않은 상태에서 컨슈머 재시작 또는 리밸런싱(다른 컨슈머에게 파티션 할당)이 발생했을때,
+  * 마지막으로 성공적으로 커밋된 offset 이후부터 데이터를 다시 읽어 오기 때문에 데이터 처리 과정에서 중복 처리가 이루어질 수 있다.
+* 예시 시나리오 - `Topic A`->`Consumer X`->`Topic B` 과정중 리밸런싱 발생
+   1. `컨슈머 X`가 `Topic A`의 파티션에서 `주문 레코드 R`을 읽고 처리한 `배송 데이터 D`를 `Topic B`로 전송하여 적재
+   2. 적재 이후 `Topic A`의 파티션에 `주문 레코드 R`에 대한 Commit을 하기전, 리밸런싱 발생 (commit이 이루어지지 않은 상태)
+   3. 리밸런싱 이후 새로 할당된 `컨슈머 Y`가 이전 오프셋(레코드R 이전)에서 재개
+   4. `컨슈머 Y`가 `주문 레코드 R`을 재처리하여 `배송 데이터 F`를 `Topic B`에 적재
+   5. `Topic B`에 `주문 레코드 R`에 대한 중복 `배송 레코드 D와 F`가 생성됨
+* 그렇다면 리밸런싱이나 컨슈머 재시작이 일어나지 않도록 구성할 수는 없을까?
+* **리밸런싱은 일어날 수 밖에 없음**
+  * 네트워크나 Kafka App에 장애가 발생하는 경우
+    * 세션 타임아웃(session.timeout.ms)이나 poll 간격 초과(max.poll.interval.ms) 등으로 컨슈머가 그룹에서 이탈할 때 등
+  * 그룹 내에 컨슈머(pod단위)가 추가/재배포/제거될 경우
+  * 토픽의 파티션 수가 변경될 때 등..
+  * 참고로, 리밸런싱은 배포 외에는 일어나는 일이 거의 없다고 함. [출처](https://www.inflearn.com/community/questions/1314430/consumer-%EC%9E%AC%EB%B0%B0%ED%8F%AC%EC%8B%9C-%EB%A6%AC%EB%B0%B8%EB%9F%B0%EC%8B%B1-%EC%9D%B4%EC%8A%88)
+* 따라서, At-least-once을 가정하고 Kafka App을 개발해야 한다.
+* 데이터의 중복 처리가 발생하지만 적재는 한번만 될 수 있도록 개발한다면 즉, **데이터 적재를 멱등하게 처리를 할 수 있도록 개발**한다면
+* Exactly-Once Semantics을 달성할 수 있다.
+* 어떻게 멱등성을 만족하여 데이터를 처리할 수 있을까?
+  * Topic to Topic 으로 데이터를 처리하는 경우
+    * Transaction producer/Consumer 이용하여 produce 및 consume을 한번에 처리 (atomic unit)
+  * Topic to 외부 저장소(ex. DB)로 데이터 처리하는 경우
+    * Unique Key 이용: Unique key 지원하는 DB의 경우, 같은 key로 데이터 적재 요청시 중복 적재되지 않도록 함
+    * Upsert(update + insert): 데이터를 삽입할 때, 이미 해당 데이터가 존재한다면 업데이트를 수행하고, 존재하지 않는다면 삽입
+      * ex. MongoDB, Postgresql, github
+* ![](2025-05-13-17-24-13.png)
+* isolation.level=read_committed
+
 
 <br><br>
 
@@ -898,7 +996,7 @@
     - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
     - "listeners=CLIENT://:9092,CONTROLLER://:9093"
     - "listener.security.protocol.map=CLIENT:PLAINTEXT"
-    - "num.partitions=6"
+    - "num.partitions=3"
     - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정
     - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정
     - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
@@ -918,6 +1016,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # enable.idempotence: true # true 시 중복 전송 방지, acks=all과 함께 사용, 3.0부터 true가 default
+      # acks: "all" # all 이 default
     consumer:
       group-id: "team-service-group"
       auto-offset-reset: earliest
