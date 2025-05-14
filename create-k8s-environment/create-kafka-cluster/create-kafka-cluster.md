@@ -65,6 +65,7 @@ helm repo update
       - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
       - "listeners=CLIENT://:9092,CONTROLLER://:9093"
       - "listener.security.protocol.map=CLIENT:PLAINTEXT"
+      - "transaction.state.log.min.isr=2" # 기본값 1 -> Transaction 사용시 2이상 필요 (트랜잭션 로그 ISR)
       - "num.partitions=3"       # 자동 생성되는 토픽의 파티션 개수 설정
       - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정 (test 환경 용도)
       - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정 (test 환경 용도)

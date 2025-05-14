@@ -573,7 +573,7 @@
 
 ### 7.1. Kafka Streams란 ?
   * Apache Kafka 기반의 실시간 데이터 처리를 위한 자바 라이브러리
-  * Kafka 토픽에서 데이터를 읽고(Source Processor), 변환 or 가공 처리한 후(Stream Processor), 다시 Kafka 토픽으로 결과를 저장(Sink Processor)하는 작업을 수행함
+  * Kafka 토픽에서 데이터를 읽고(Source Processor), 변환 or 가공 처리한 후(Stream Processor), Kafka 토픽으로 결과를 저장(Sink Processor) 작업을 수행
   * Kafka Streams는 별도의 클러스터를 필요로 하지 않고, 라이브러리 형태로 일반 Java 애플리케이션을 통해 구현 가능
 
 <br>
@@ -912,14 +912,85 @@
 * 데이터의 중복 처리가 발생하지만 적재는 한번만 될 수 있도록 개발한다면 즉, **데이터 적재를 멱등하게 처리를 할 수 있도록 개발**한다면
 * Exactly-Once Semantics을 달성할 수 있다.
 * 어떻게 멱등성을 만족하여 데이터를 처리할 수 있을까?
-  * Topic to Topic 으로 데이터를 처리하는 경우
-    * Transaction producer/Consumer 이용하여 produce 및 consume을 한번에 처리 (atomic unit)
+  * Topic to Topic 으로 데이터를 처리하고 적재하는 경우
+    * 두 Topic은 Kafka에서 관리되는 자원이기 때문에,
+    * Kafka의 Transaction(트랜잭션 컨슈머와 프로듀서)을 이용하여 consumer와 producer의 로직을 한번에(atomic) 처리할 수 있다.
+    * 즉, offset commit이 이루어지지 않은 상태에서 리밸런싱이 일어나는 상황이 생겨도 원자적으로 데이터 처리가 가능하기 때문에 중복 처리 발생하지 않음
+      * 정상작동 예시1
+        * 컨슈머가 `Topic A`로부터 `주문 레코드 R`을 가져오고 `배송 데이터 D`로 처리, `Topic B`에 적재
+        * 그리고 커밋(`producer.commitTransaction()`)
+      * 리밸런싱 예시2
+        * 컨슈머가 `Topic A`로부터 `주문 레코드 R`을 가져오고 `배송 데이터 D`로 처리, `Topic B`에 적재도중 리밸런싱 발생
+        * transaction 롤백으로 `Topic B`에 `배송 데이터 D`는 삭제, offset도 커밋되지 않음
+        * 리밸런싱 이후 새로 할당된 컨슈머가 마지막 커밋된 오프셋부터 재처리하여 `주문 레코드 R`을 정상 처리하고 `Topic B`에 배송 데이터 적재
+        * 이후 offset 커밋(`producer.commitTransaction()`)으로 정상적으로 레코드가 처리됨
+    * 필요 옵션 - producer와 consumer 설정 모두 필요
+      * `producer.enable.idempotence = true` - Transaction Producer는 멱등성 프로듀서 기반이므로 설정
+      * `producer.transactional.id = "{unique-id}"` - 트랜잭션 식별 id, 고유한 값으로 설정(다른 프로듀서와 겹치면 안됨)
+      * `consumer.enable-auto-commit: false` - 컨슈머가 offset을 커밋하지 않고 프로듀서가 커밋을 수행해야 하므로 auto-commit은 false설정
+      * `consumer.isolation-level: read_committed`
+        * read_uncommitted가 default 옵션이므로 변경 필요
+        * 트랜잭션 완료(commit)된 메시지만 소비하도록 보장
+        * 특히 리밸런싱 후 새 컨슈머가 아직 완료되지 않은 트랜잭션의 메시지를 읽지 않도록 함으로써 중복 처리를 방지
+    * Transaction 이용한 코드 예시
+      ```java
+      producerProps.put(TRANSACTIONAL_ID_CONFIG, "AD_TRANSACTION"); // 트랜잭션 프로듀서 옵션 (transaction.id)
+      producer.initTransactions(); // 트랜잭션 프로듀서 초기화
+      try {
+          while (true) {
+              ConsumerRecords<String, String> records = consumer.poll(ofSeconds(10));
+              // ... records를 사용한 데이터 처리 생략
+              producer.beginTransaction();
+              producer.send(new ProducerRecord<String, String>("다음 토픽", "처리가 완료된 이벤트"));
+              // 컨슈머가 오프셋을 커밋하지 않고 프로듀서가 커밋을 수행한다.
+              // 그러므로 반드시 컨슈머의 enable.auto.commit을 false로 설정한다.
+              producer.sendOffsetsToTransaction(getRecordOffset(), CONSUMER_GROUP_ID);
+              producer.commitTransaction();
+          }
+      } catch (KafkaException e) {
+          producer.abortTransaction();
+      }
+      ```
   * Topic to 외부 저장소(ex. DB)로 데이터 처리하는 경우
-    * Unique Key 이용: Unique key 지원하는 DB의 경우, 같은 key로 데이터 적재 요청시 중복 적재되지 않도록 함
-    * Upsert(update + insert): 데이터를 삽입할 때, 이미 해당 데이터가 존재한다면 업데이트를 수행하고, 존재하지 않는다면 삽입
-      * ex. MongoDB, Postgresql, github
+    * Topic은 Kafka에서 관리되는 자원이지만 외부 저장소는 아니기 때문에,
+    * Kafka의 Transaction으로 한번에 처리할 수 없다. 따라서 외부 저장소의 특성을 이용하여, 아래의 2가지 방식을 고려해 볼 수 있다.
+      * `Unique Key`: Unique key 지원하는 DB의 경우, 같은 key로 데이터 적재 요청시 중복 적재되지 않도록 함
+      * `Upsert(update + insert)`: 데이터를 삽입할 때, 이미 해당 데이터가 존재한다면 업데이트를 수행하고, 존재하지 않는다면 삽입 되도록 함
+        * ex. MongoDB, Postgresql, github
+
+#### 8.4.3. Kafka Streams를 이용한 Consumer의 데이터 중복 처리 방지
+* Kafka Streams의 `processing.guarantee=exactly_once_v2` 옵션을 활성화하면, 프레임워크가 내부적으로 트랜잭션을 관리하므로
+* `8.4.2.` 항목에서 Transaction 이용한 코드 예시 처럼 **개발자가 직접 오프셋 커밋을 제어할 필요가 없다.**
+  * 오프셋 커밋과 같은 트랜잭션관련 로직을 직접 작성하지 않아도 된다!
+* 따라서 `enable-auto-commit` 설정을 true로 설정하여, 트랜잭션 완료 후 자동 커밋되도록 할 수 있다.
+* 또한 데이터 처리 도중 리밸런싱이 일어날 경우에는 미커밋 Transaction은 롤백되므로 데이터의 중복 처리 방지가 가능하다.
+* 옵션 설정 (kafka Streams App 설정)
+  * `producer.enable.idempotence = true` - exactly_once_v2 설정 시 자동 활성화
+  * `producer.transactional.id = "{unique-id}"` - Kafka Streams가 내부적으로 자동 생성 (애플리케이션 ID + 스레드 정보)
+  * `consumer.isolation-level: read_committed` - default: read_uncommitted
+  * `consumer.enable-auto-commit: true` - default: true (Streams가 재정의)
+  * `streams.processing.guarantee: exactly_once_v2` - default: at_least_once
+  * `streams.properties.commit.interval.ms: 100` - default: 100ms
+* kafka cluster 옵션 설정
+  * default설정 제외하고 kafka 4.0.0, KRaft 모드 기준으로,
+  * `transaction.state.log.min.isr=2` 옵션 필요 (default: 1)
+  * 트랜잭션 로그가 커밋되기 위해 필요한 트랜잭션 로그의 최소 동기화 복제본(ISR) 수에 해당
+* Transaction Producer와 Consumer를 직접 사용하는 것과의 차이는?
+  * Transaction을 직접 사용할 경우에는 오프셋 커밋을 코드를 통해 직접적으로 제어해야 하지만
+    * exactly_once_v2 옵션 사용시 Stream 코드 작성하면 알아서 Transaction 으로 동작
+  * Streams의 exactly_once_v2 옵션을 사용하는 경우 auto-commit을 사용하게 되는데,
+    * 일정 간격을 주기로 Topic의 변경사항과 오프셋을 커밋한다.
+    * 주기는 streams.properties.commit.interval.ms 옵션으로 설정
+
+
+#### 8.4.4. 데이터 중복 처리 방지 내용 정리
+* Producer의 데이터 중복 적재 문제는 Idempotence Producer나 Transaction Producer(여러 Produce 로직 묶는 경우) 사용
+* Consumer의 데이터 중복 처리 문제는,
+  * Topic to Topic 으로 Kafka에서 관리 가능한 경우
+    * Transaction Consumer & Producer 사용
+    * 또는 Kafka Streams 사용시 exactly_once_v2 옵션 사용
+  * Topic의 레코드 처리후 외부 저장소로 적재하는 경우 - Unique Key 이용하거나 Upsert방식 이용
 * ![](2025-05-13-17-24-13.png)
-* isolation.level=read_committed
 
 
 <br><br>
