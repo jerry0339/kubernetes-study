@@ -791,12 +791,119 @@
 
 <br><br>
 
-## 8. Apache Kafka에 대한 고찰
+## 8. Kafka Connect
+* Kafka Connect는 데이터 파이프라인 생성시 반복 작업을 줄이고 효율적인 전송을 하기 위한 애플리케이션이다.
+  * DB나 FS와 연결하는데 사용함
+    * ex. DB의 데이터를 Topic에 저장하고자 할때, DB에서 select하고 Topic에 Produce하는 과정을 Template으로 만들어 반복적으로 사용할 수 있음
+  * 특정 작업 형태를 템플릿으로 만들어 놓은 Connector를 실행함으로써 반복 작업을 줄일 수 있다.
+* Kafka Connect 작동 방식
+  * ![](2025-04-27-21-38-16.png)
+  * Source Connector: Producer 역할
+  * Sink Connector: Consumer 역할
+  * Connector는 오픈 소스를 이용할수도 있고 직접 개발하여 사용할 수도 있음
+    * 오픈 소스 커넥터 ex. HDFS 커넥터, AWS S3 커넥터, JDBC 커넥터, ElasticSearch 커넥터 등
+* Kafka Connect 내부 구조
+  * ![](2025-04-27-21-39-32.png)
+  * Kafka Connect 생성시 Connector와 Task를 생성해야 함
+    * Connector에서는 주로 설정 값에 대한 Validation 로직들이 들어가고 모니터링에도 활용됨
+    * Task는 Thread하나가 할당되며, 실질적인 데이터 처리 로직(DB와 연결, 리소스와 커넥트 등)이 들어감
+
+<br>
+
+### 8.1. Kafka Connect를 실행하는 방법
+* 단일 모드 커넥트 (Standalone Mode Kafka Connect)
+  * 개발 환경 구성 용도
+* 분산 모드 커넥트 (Distributed Mode Kafka Connect)
+  * 고가용성 구성 용도, failover 가능
+  * 분산모드에서는 데이터량이 많아져 Consumer Lag이 늘어나거나 지연이 발생하는 경우 커넥트를 scale-out할 수 있음, scale-in도 마찬가지.
+
+<br><br>
+
+## 9. Kafka Streams vs Kafka Connect
+* `Kafka Streams`는 윈도우 연산, 조인(Join), 집계(Aggregation) 등 **상태를 유지**해야 하는 복잡한 연산에 적합하며,
+  * filter, map, branch 등 단순 변환 작업에 해당하는 Stateless 처리도 가능하다.
+  * 즉, Kafka Streams는 Stateful 처리에 최적화되어 있지만, Stateless 작업도 수행 가능
+* `Kafka Connect`는 **데이터 이동에 특화**되어 있음
+  * Kafka와 외부 시스템(DB, 클라우드, 파일 등) 간 데이터 이동을 담당
+  * 복잡한 연산이나 상태 관리(stateful data 관리)는 불가능함
+  * 사전 정의된 커넥터(JDBC, Elasticsearch 등)를 사용해 코드 없이 데이터 연동 가능하다는 장점이 큼
+  * 즉, Kafka Connect는 Stateless 데이터 이동에 특화되어 있으며, 복잡한 처리보다는 **데이터 연동이 목적**
+* 따라서, 두 도구는 목적이 다르며 용도에 따라 사용하는 것이 일반적
+  * ex. Kafka Connect로 데이터 수집 -> Kafka Streams로 실시간 처리 -> Kafka Connect로 결과 저장
+
+<br>
+
+### 9.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
+* ![](2025-04-29-19-26-14.png)
+
+<br><br>
+
+## 10. kafka 설정
+
+### 10.1. kafka cluster 설정 (k8s 환경)
+* KRaft 모드 설정 - `process.roles=broker,controller`
+* Kafka KRaft(Kafka Raft) 모드에서 **컨트롤러 쿼럼(Quorum)**을 구성하는 노드(Pod에 해당)들의 목록을 지정
+  * `"node.id=${HOSTNAME##*-}`: HOSTNAME이 k8s-worekr-01 ~ 03일 경우, node.id가 0~2로 할당됨
+  * `controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093, 1@..., 2@..., ...`
+    * FQDN을 직접 명시해서 지정함
+    * `{노드id}@{FQDN}` 형식
+* `num.partitions=6`: 자동 생성되는 토픽의 파티션 개수 설정
+* `num.network.threads=4`: 네트워크 스레드 개수 설정
+  * 브로커가 네트워크에서 요청을 받고 응답을 전송하는 데 사용하는 스레드 수
+* `num.io.threads=6`: I/O 스레드 개수 설정
+  * 네트워크 스레드가 받은 요청을 실제로 처리(디스크 I/O 포함)하는 데 사용하는 스레드 수
+  * **네트워크 스레드가 요청을 큐에 쌓으면, I/O 스레드가 이를 소비(처리)하는 구조**
+* `min.insync.replicas=2`: acks=all 일때, 확인하는 ISR 파티션 개수 설정
+* 설정 예시
+  ```yaml
+  configurationOverrides:
+    - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
+    - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름이 k8s-worker-01~03일 경우 StatefulSet 인덱스(0,1,2) 자동 할당
+    - "controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093,1@kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9093,2@kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9093" # FQDN 직접 명시
+    - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
+    - "listeners=CLIENT://:9092,CONTROLLER://:9093"
+    - "listener.security.protocol.map=CLIENT:PLAINTEXT"
+    - "num.partitions=3"
+    - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정
+    - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정
+    - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
+  ```
+
+<br>
+
+### 10.2. Java App 설정
+* spring boot 기반 App의 application.yaml 설정
+* 설정 예시
+```yaml
+spring:
+  kafka:
+    bootstrap-servers: "kafka-controller-headless.kafka.svc.cluster.local:9092"
+    properties:
+      security.protocol: PLAINTEXT # 프로토콜 명시
+      bootstrap.servers.protocol.map: CLIENT:PLAINTEXT
+      client.id: "team-kafka-client" # 클라이언트 ID 지정
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # enable.idempotence: true # true 시 중복 전송 방지, acks=all과 함께 사용, 3.0부터 true가 default
+      # acks: "all" # all 이 default
+    consumer:
+      group-id: "team-service-group"
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    streams:
+      application-id: "team-streams-app"
+```
+
+<br><br>
+
+## 11. Apache Kafka에 대한 고민
 * kafka를 공부하면서 궁금하거나 헷갈렸던 내용들 정리
 
 <br>
 
-### 8.1. Kafka Streams에서, stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
+### 11.1. Kafka Streams에서, stateful processing으로 topic에 저장되는 데이터는 batch 데이터라고 볼 수 있을까?
 > Stream 데이터와 Batch 데이터의 차이?
 
 * Streams는 어떤 Topic에 데이터가 commit되면 해당 메시지를 소비하여 재가공하고 새로운 topic에 저장한다.
@@ -811,7 +918,7 @@
 
 <br>
 
-### 8.2. Kafka를 이용한 동시성 이슈 해결
+### 11.2. Kafka를 이용한 동시성 이슈 해결
 > Kafka를 이용하면 데이터 조회시 동시성 이슈를 완전히 해결할 수 있는걸까?
 
 * Apache Kafka의 핵심 설계 원칙에 기반하여 동시성 문제가 거의 발생하지 않는다고 볼 수 있다.
@@ -834,7 +941,7 @@
 
 <br>
 
-### 8.3. DB 없이 Kafka만 사용하는 것은 어떨까?
+### 11.3. DB 없이 Kafka만 사용하는 것은 어떨까?
 > Kafka가 데이터 저장소의 역할을 충분히 수행할 수 있을까?
 
 * Kafka는 고성능, 고가용성, 확장성을 갖춘 **메시지 브로커**로, 메시지를 **일시적으로 저장**하고 여러 **소비자에게 전달**하는 역할을 한다.
@@ -857,7 +964,7 @@
 
 <br>
 
-### 8.4. 중복 데이터 처리를 방지하는 방법
+### 11.4. 중복 데이터 처리를 방지하는 방법
 > 어떻게 신뢰성 있는 카프카 애플리케이션을 만들 수 있을까?
 >
 > Producer와 Consumer의 Exactly-Once 데이터 처리가 가능할까?
@@ -876,7 +983,7 @@
   * `consumer`의 offset commit이 이루어지지 않은 상태에서 컨슈머 재시작 또는 리밸런싱 발생 시
     * 재시작된 Consumer 또는 파티션을 새로 할당받은 Consumer가 해당 레코드를 다시 읽어 데이터 중복 처리 발생
 
-#### 8.4.1. Producer의 데이터 중복 적재를 방지
+#### 811.4.1. Producer의 데이터 중복 적재를 방지
 * 데이터의 중복 적재는 어떻게 일어날 수 있을까?
   * producer가 레코드 전달 이후, 네트워크 문제로 acknowledgement 메시지를 전달받지 못했을때,
   * producer는 레코드가 정상적으로 적재되지 않았다고 판단하여 다시 적재 요청을 할 수 있고, 이는 데이터의 중복 적재로 이어질 수 있다.
@@ -891,7 +998,7 @@
     * `enable.idempotence = true` (Transaction Producer는 멱등성 프로듀서 기반이기 때문)
     * `transactional.id = "unique-id"` (id는 클러스터내에 유일해야만 함)
 
-#### 8.4.2. Consumer의 데이터 중복 처리를 방지
+#### 11.4.2. Consumer의 데이터 중복 처리를 방지
 * Consumer의 데이터 중복 처리는 어떻게 일어날 수 있을까?
   * offset commit이 이루어지지 않은 상태에서 컨슈머 재시작 또는 리밸런싱(다른 컨슈머에게 파티션 할당)이 발생했을때,
   * 마지막으로 성공적으로 커밋된 offset 이후부터 데이터를 다시 읽어 오기 때문에 데이터 처리 과정에서 중복 처리가 이루어질 수 있다.
@@ -909,7 +1016,7 @@
   * 토픽의 파티션 수가 변경될 때 등..
   * 참고로, 리밸런싱은 배포 외에는 일어나는 일이 거의 없다고 함. [출처](https://www.inflearn.com/community/questions/1314430/consumer-%EC%9E%AC%EB%B0%B0%ED%8F%AC%EC%8B%9C-%EB%A6%AC%EB%B0%B8%EB%9F%B0%EC%8B%B1-%EC%9D%B4%EC%8A%88)
 * 따라서, At-least-once을 가정하고 Kafka App을 개발해야 한다.
-* 데이터의 중복 처리가 발생하지만 적재는 한번만 될 수 있도록 개발한다면 즉, **데이터 적재를 멱등하게 처리를 할 수 있도록 개발**한다면
+* 데이터의 중복 처리가 발생하지만 적재는 한번만 될 수 있도록 개발한다면 즉, **중복으로 요청되는 데이터 적재를 멱등하게 처리를 할 수 있도록 개발**한다면
 * Exactly-Once Semantics을 달성할 수 있다.
 * 어떻게 멱등성을 만족하여 데이터를 처리할 수 있을까?
   * Topic to Topic 으로 데이터를 처리하고 적재하는 경우
@@ -958,7 +1065,7 @@
       * `Upsert(update + insert)`: 데이터를 삽입할 때, 이미 해당 데이터가 존재한다면 업데이트를 수행하고, 존재하지 않는다면 삽입 되도록 함
         * ex. MongoDB, Postgresql, github
 
-#### 8.4.3. Kafka Streams를 이용한 Consumer의 데이터 중복 처리 방지
+#### 11.4.3. Kafka Streams를 이용한 Consumer의 데이터 중복 처리 방지
 * Kafka Streams의 `processing.guarantee=exactly_once_v2` 옵션을 활성화하면, 프레임워크가 내부적으로 트랜잭션을 관리하므로
 * `8.4.2.` 항목에서 Transaction 이용한 코드 예시 처럼 **개발자가 직접 오프셋 커밋을 제어할 필요가 없다.**
   * 오프셋 커밋과 같은 트랜잭션관련 로직을 직접 작성하지 않아도 된다!
@@ -983,7 +1090,7 @@
     * 주기는 streams.properties.commit.interval.ms 옵션으로 설정
 
 
-#### 8.4.4. 데이터 중복 처리 방지 내용 정리
+#### 11.4.4. 데이터 중복 처리 방지 내용 정리
 * Producer의 데이터 중복 적재 문제는 Idempotence Producer나 Transaction Producer(여러 Produce 로직 묶는 경우) 사용
 * Consumer의 데이터 중복 처리 문제는,
   * Topic to Topic 으로 Kafka에서 관리 가능한 경우
@@ -992,108 +1099,29 @@
   * Topic의 레코드 처리후 외부 저장소로 적재하는 경우 - Unique Key 이용하거나 Upsert방식 이용
 * ![](2025-05-13-17-24-13.png)
 
-
-<br><br>
-
-## 9. Kafka Connect
-* Kafka Connect는 데이터 파이프라인 생성시 반복 작업을 줄이고 효율적인 전송을 하기 위한 애플리케이션이다.
-  * DB나 FS와 연결하는데 사용함
-    * ex. DB의 데이터를 Topic에 저장하고자 할때, DB에서 select하고 Topic에 Produce하는 과정을 Template으로 만들어 반복적으로 사용할 수 있음
-  * 특정 작업 형태를 템플릿으로 만들어 놓은 Connector를 실행함으로써 반복 작업을 줄일 수 있다.
-* Kafka Connect 작동 방식
-  * ![](2025-04-27-21-38-16.png)
-  * Source Connector: Producer 역할
-  * Sink Connector: Consumer 역할
-  * Connector는 오픈 소스를 이용할수도 있고 직접 개발하여 사용할 수도 있음
-    * 오픈 소스 커넥터 ex. HDFS 커넥터, AWS S3 커넥터, JDBC 커넥터, ElasticSearch 커넥터 등
-* Kafka Connect 내부 구조
-  * ![](2025-04-27-21-39-32.png)
-  * Kafka Connect 생성시 Connector와 Task를 생성해야 함
-    * Connector에서는 주로 설정 값에 대한 Validation 로직들이 들어가고 모니터링에도 활용됨
-    * Task는 Thread하나가 할당되며, 실질적인 데이터 처리 로직(DB와 연결, 리소스와 커넥트 등)이 들어감
-
 <br>
 
-### 9.1. Kafka Connect를 실행하는 방법
-* 단일 모드 커넥트 (Standalone Mode Kafka Connect)
-  * 개발 환경 구성 용도
-* 분산 모드 커넥트 (Distributed Mode Kafka Connect)
-  * 고가용성 구성 용도, failover 가능
-  * 분산모드에서는 데이터량이 많아져 Consumer Lag이 늘어나거나 지연이 발생하는 경우 커넥트를 scale-out할 수 있음, scale-in도 마찬가지.
+### 11.5. 모든 데이터가 일관성을 가지도록, 순차적으로 메시지를 처리할 수 있을까? 어떤 기준으로 Topic을 나눠야 할까? 
+> 데이터 일관성을 위해 Topic내 메시지들을 모두 순차적으로 처리 가능할까?
 
-<br><br>
-
-## 10. Kafka Streams vs Kafka Connect
-* `Kafka Streams`는 윈도우 연산, 조인(Join), 집계(Aggregation) 등 **상태를 유지**해야 하는 복잡한 연산에 적합하며,
-  * filter, map, branch 등 단순 변환 작업에 해당하는 Stateless 처리도 가능하다.
-  * 즉, Kafka Streams는 Stateful 처리에 최적화되어 있지만, Stateless 작업도 수행 가능
-* `Kafka Connect`는 **데이터 이동에 특화**되어 있음
-  * Kafka와 외부 시스템(DB, 클라우드, 파일 등) 간 데이터 이동을 담당
-  * 복잡한 연산이나 상태 관리(stateful data 관리)는 불가능함
-  * 사전 정의된 커넥터(JDBC, Elasticsearch 등)를 사용해 코드 없이 데이터 연동 가능하다는 장점이 큼
-  * 즉, Kafka Connect는 Stateless 데이터 이동에 특화되어 있으며, 복잡한 처리보다는 **데이터 연동이 목적**
-* 따라서, 두 도구는 목적이 다르며 용도에 따라 사용하는 것이 일반적
-  * ex. Kafka Connect로 데이터 수집 -> Kafka Streams로 실시간 처리 -> Kafka Connect로 결과 저장
+* kafka에 발행된 이벤트 메시지가 순차적으로 처리되지 않으면, 데이터의 상태가 실제와 불일치하는 문제가 발생할 수 있다.
+  * ex. 유저의 상태를 offline으로 변경후 online으로 변경했는데, online으로 변경하는 이벤트가 먼저 처리 된다면?
+* 어떻게 데이터의 일관성을 유지할 수 있을까?
+  * 기본적으로 kafka에서 메시지를 발행하면 메시지의 key에 따라 Topic의 partition에 분산되어 저장된다.
+  * partition에서 offset으로 어디까지 읽은 메시지인지 확인할 수 있기 때문에, Consumer가 메시지를 순차적으로 처리할 수 있다.
+  * 따라서 데이터를 partition 단위로 관리할 수 있다면, 데이터의 일관성을 유지할 수 있다.
+* Topic은 고가용성, 확장성, 병렬처리 등의 이유로 여러개의 partition을 가지고 있다.
+* Topic은 무엇을 기준으로 분류하는 것이 좋을까?
+  * Topic은 일반적으로 AggregateType(도메인)을 기준으로 분류한다.
+  * 그리고 eventType은 메시지의 payload나 header에서 구분하는 방식이 가장 일반적인 방법이다.
+  * 왜 도메인 기준으로 Topic을 정함?
+    * 도메인 단위로 topic을 묶으면 확장성과 관리가 용이하기 때문
+      * eventType 기준으로 topic을 나누게 되면, 이벤트 추가나 변경시 토픽 개수가 계속해서 추가될 수 있기 때문에 관리가 어렵다.
+      * 도메인에 관심 있는 서비스만 구독하도록 하면 되기 때문에 consumer 구성이 편함
+      * 확장성 - 파티션 단위 병렬 처리에 유리 (아래에서 설명)
+* Topic 기준이 넓은 범위(도메인 기준)로 여러 이벤트들을 포함하고 있고, 가지고 있는 partition 또한 여러개인데, 각각의 이벤트를 모두 순차적으로 처리하는 것이 가능할까?
+  * 특별한 partition 전략을 사용하지 않는다면, 발행된 이벤트 메시지는 메시지 key를 기준으로 항상 동일한 파티션에 저장된다.
+  * 즉, Topic내에서 같은 키에 대한 메시지는 항상 같은 Consumer가 처리하도록 할 수 있기 때문에 offset을 이용하여 메시지가 순차적으로 처리되는 것을 보장할 수 있다.
+  * 따라서 같은 키를 가진 상태 변경 이벤트는 순서 보장이 가능하며, 최종적으로 데이터 일관성 유지가 가능하다.
 
 <br>
-
-### 10.1. Kafka Streams와 Kafka Connect를 포함한 카프카 아키텍처 예시
-* ![](2025-04-29-19-26-14.png)
-
-<br><br>
-
-## 11. kafka 설정
-
-### 11.1. kafka cluster 설정 (k8s 환경)
-* KRaft 모드 설정 - `process.roles=broker,controller`
-* Kafka KRaft(Kafka Raft) 모드에서 **컨트롤러 쿼럼(Quorum)**을 구성하는 노드(Pod에 해당)들의 목록을 지정
-  * `"node.id=${HOSTNAME##*-}`: HOSTNAME이 k8s-worekr-01 ~ 03일 경우, node.id가 0~2로 할당됨
-  * `controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093, 1@..., 2@..., ...`
-    * FQDN을 직접 명시해서 지정함
-    * `{노드id}@{FQDN}` 형식
-* `num.partitions=6`: 자동 생성되는 토픽의 파티션 개수 설정
-* `num.network.threads=4`: 네트워크 스레드 개수 설정
-  * 브로커가 네트워크에서 요청을 받고 응답을 전송하는 데 사용하는 스레드 수
-* `num.io.threads=6`: I/O 스레드 개수 설정
-  * 네트워크 스레드가 받은 요청을 실제로 처리(디스크 I/O 포함)하는 데 사용하는 스레드 수
-  * **네트워크 스레드가 요청을 큐에 쌓으면, I/O 스레드가 이를 소비(처리)하는 구조**
-* `min.insync.replicas=2`: acks=all 일때, 확인하는 ISR 파티션 개수 설정
-* 설정 예시
-  ```yaml
-  configurationOverrides:
-    - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
-    - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름이 k8s-worker-01~03일 경우 StatefulSet 인덱스(0,1,2) 자동 할당
-    - "controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093,1@kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9093,2@kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9093" # FQDN 직접 명시
-    - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
-    - "listeners=CLIENT://:9092,CONTROLLER://:9093"
-    - "listener.security.protocol.map=CLIENT:PLAINTEXT"
-    - "num.partitions=3"
-    - "num.network.threads=3"  # 기본값 5 -> 3으로 감소 설정
-    - "num.io.threads=5"       # 기본값 8 -> 5로 감소 설정
-    - "min.insync.replicas=2"  # 기본값 1 -> acks: "all" 사용시, ISR 파티션 개수 설정, 데이터 처리 속도에 큰 영향을 미치므로 신뢰성과의 trade-off 고려
-  ```
-
-### 11.2. Java App 설정
-* spring boot 기반 App의 application.yaml 설정
-* 설정 예시
-```yaml
-spring:
-  kafka:
-    bootstrap-servers: "kafka-controller-headless.kafka.svc.cluster.local:9092"
-    properties:
-      security.protocol: PLAINTEXT # 프로토콜 명시
-      bootstrap.servers.protocol.map: CLIENT:PLAINTEXT
-      client.id: "team-kafka-client" # 클라이언트 ID 지정
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      # enable.idempotence: true # true 시 중복 전송 방지, acks=all과 함께 사용, 3.0부터 true가 default
-      # acks: "all" # all 이 default
-    consumer:
-      group-id: "team-service-group"
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    streams:
-      application-id: "team-streams-app"
-```
