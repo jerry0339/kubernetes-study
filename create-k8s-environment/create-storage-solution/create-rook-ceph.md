@@ -286,6 +286,17 @@
   * OSD 상태 점검
     * `ceph osd status`
     * `ceph osd df`
+  * 생성된 rbd 확인 방법
+    * `rbd ls -p {CephBlockPool의_이름}`
+    * ![](2025-05-20-15-59-40.png)
+  * 고아 rbd 삭제하기
+    * StorageClass의 설정에 **reclaimPolicy: Retain** 설정이 포함되어 있으면 pv를 삭제해도 rbd는 남아 있게 됨(고아 rbd)
+    * `rbd ls -p {CephBlockPool의_이름}`명령어를 통해 rbd를 조회하면 현재 사용중인 rbd를 포함하여 고아 rbd까지 조회가 되므로 사용중인 rbd인지 확인해야 함
+    * pv의 볼륨 속성 정보에서 확인 가능함
+      * ![](2025-05-20-15-58-59.png)
+    * 사용중인 rbd 확인후, 아래 명령어로 사용중이지 않은 rbd(고아rbd)를 삭제하면 됨
+      * `rbd rm -p {CephBlockPool의_이름} {rbd_UUID}`
+      * ex. rbd rm -p ssd-pool csi-vol-29425550-38c6-44ec-b06d-8c60cf3f3444
 
 <br><br>
 
