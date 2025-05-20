@@ -58,6 +58,15 @@ helm repo update
     persistence:
       size: 5Gi     # PVC 크기 지정 - 20G 권장, allowVolumeExpansion: true설정이 storageclass에 있으므로 확장도 가능
       # existingClaim: ""  # 기존 PVC 사용할 경우, 이름 지정
+    # KRaft모드에서는 pod가 controller와 broker 역할을 모두 수행하기 때문에 KAFKA_HEAP_OPTS을 아래와 같이 controller,broker 모두 설정해 주어야 함
+    controller:
+      extraEnvVars:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx768m -Xms768m" # default 설정이 1Gi임 -> memory resource 설정을 낮게 하면 1Gi를 요청하여 OOM이 발생하므로 Memory Limits 설정에 맞추어 768로 낮춘것임
+    broker:
+      extraEnvVars:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx768m -Xms768m"
     configurationOverrides:
       - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
       - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름이 k8s-worker-01~03일 경우 StatefulSet 인덱스(0,1,2) 자동 할당
@@ -73,10 +82,10 @@ helm repo update
     resources: # 아래 설정은 test환경 최소 사양 세팅
       requests:
         cpu: "250m"      # default - 250m : Pod가 계속 재시작 된다면 500m으로 늘릴 필요 있음
-        memory: "1.5Gi"  # default - 2.5Gi
+        memory: "512Mi"  # default - 2.5Gi
       limits:
-        cpu: "1"         # default - 1
-        memory: "2.5Gi"  # default - 8.5Gi
+        cpu: "500m"         # default - 1
+        memory: "1Gi"  # default - 8.5Gi
     monitoring:
       jmx:
         enabled: true  # 모니터링 활성화 - Prometheus와 연결 가능
@@ -86,12 +95,17 @@ helm repo update
 
 ## 4. Kafka 설치하고 점검하기
 * kafka 설치
+  * kafka-values.yaml의 설정으로 적용되지 않는 옵션들은 아래와 같이 --set이용하여 직접 설정했음
   ```sh
   helm install kafka bitnami/kafka \
     --namespace kafka \
     --create-namespace \
     -f kafka-values.yaml \
     --set listeners.client.protocol=PLAINTEXT # SASL_PLAINTEXT에서 PLAINTEXT로 바꾸어서 적용
+    --set 'controller.extraEnvVars[0].name=KAFKA_HEAP_OPTS' \
+    --set 'controller.extraEnvVars[0].value=-Xmx768m -Xms768m' \
+    --set 'broker.extraEnvVars[0].name=KAFKA_HEAP_OPTS' \
+    --set 'broker.extraEnvVars[0].value=-Xmx768m -Xms768m'
   ```
 * kafka 파드 점검하기
   ```sh
