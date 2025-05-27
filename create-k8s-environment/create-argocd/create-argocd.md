@@ -170,9 +170,43 @@ kubectl get pods -n argocd
 <br><br>
 
 ## 7. Argo Rollouts 추가 설치
-```sh
-```
+* helm repo 추가
+  ```sh
+  helm repo add argo https://argoproj.github.io/argo-helm
+  helm repo update
+  ```
+* rollouts-values.yaml
+  ```yaml
+  controller:
+    replicas: 1
 
-
-
-
+  dashboard:
+    enabled: true
+    service:
+      type: NodePort
+      portName: dashboard
+      port: 3100
+      targetPort: 3100
+      nodePort: 32100
+  ```
+* helm 으로 설치
+  ```sh
+  helm upgrade --install argo-rollouts argo/argo-rollouts \
+    --namespace argo-rollouts \
+    --create-namespace \
+    -f rollouts-values.yaml
+  ```
+* Rollout CLI 설치
+  ```sh
+  curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64
+  chmod +x kubectl-argo-rollouts-linux-amd64
+  sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+  # 설치 확인
+  kubectl argo rollouts version
+  ```
+* 설치 확인
+  ```sh
+  kubectl get pods -n argo-rollouts
+  kubectl get svc -n argo-rollouts
+  ```
+  

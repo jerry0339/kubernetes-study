@@ -18,9 +18,10 @@
   * 클라이언트 사이드에서 api 결과를 순차적으로 받아 처리해야 하는 경우에는 적합하지 않음
   * ![](2025-02-12-02-41-26.png)
 
-### 2. CQRS & Event Sourcing
+### 2. CQRS
 * [참고 링크](https://velog.io/@everyhannn/CQRS-Event-Sourcing)
 * 메시지 브로커(Kafka 등)를 활용하여 이벤트를 전달하고, 필요한 경우 CQRS(Command Query Responsibility Segregation) 패턴을 적용해 읽기(read)와 쓰기(update)를 분리
+* 읽기 작업의 성능이 매우 높은 것이 특징
 * update의 경우 이벤트를 발행
 * 각 Service마다 필요한 데이터를 가지고 있으며 update와 read를 분리할 수 있음
   * 예시 - delivery서버를 통해 delivery중인 product를 조회해야 하는 상황
@@ -29,12 +30,12 @@
     * delivery조회시 delivery service를 통해 바로 delivery정보와 해당하는 product들의 정보를 read할 수 있음
     * product update시 product service를 통해 product의 정보가 업데이트 되고, 해당 product업데이트 메시지를 발행
       * 발행된 메시지에 해당하는 event를 구독중인 service(위에서는 delivery serivce)에서 product관련 정보가 업데이트 됨
-* 위와 같은 구조에서 결국에는 `데이터의 정합성`이 보장됨
-  * Eventual Consistency (지연된 정합성)
-* 하지만, 데이터 변경이 자주 일어나는 경우 리소스를 많이 잡아 먹기 때문에, **API Composition** 방법이 더 효과적일 수 있음
+* 위와 같은 구조에서 시간이 지나면 결국에는 `데이터의 정합성`이 보장됨
+  * Eventual Consistency
+* 하지만, 데이터 변경이 자주 일어나는 경우 리소스를 많이 잡아 먹기 때문에, **API Composition** 방법이 더 효과적일 수도 있음
 
 
-### 3. Saga 패턴? - `todo`
+### 3. Saga 패턴?
 * [참고 링크](https://medium.com/@greg.shiny82/%EB%A7%88%EC%9D%B4%ED%81%AC%EB%A1%9C%EC%84%9C%EB%B9%84%EC%8A%A4-%EC%82%AC%EA%B0%80-%ED%8C%A8%ED%84%B4-544fc1adf5f3)
 * MSA에서 여러 데이터베이스로 데이터를 분리할 때 필연적으로 발생하게 되는 트랜잭션 관리 이슈를 해결하기 위한 패턴임
   * `데이터의 정합성`을 유지하기 위함
@@ -68,5 +69,11 @@
     * 단점: 실행 순서와 진행 상황을 파악하기가 어렵고, 그 때문에 적절한 보상 조치를 실행하는 것조차 어려움
 
 ### 4. 트랜잭셔널 아웃박스 패턴 Transactional Outbox Pattern
-* [참고 링크](https://medium.com/@greg.shiny82/%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%94%EB%84%90-%EC%95%84%EC%9B%83%EB%B0%95%EC%8A%A4-%ED%8C%A8%ED%84%B4%EC%9D%98-%EC%8B%A4%EC%A0%9C-%EA%B5%AC%ED%98%84-%EC%82%AC%EB%A1%80-29cm-0f822fc23edb)
-* https://velog.io/@everyhannn/CQRS-Event-Sourcing
+* [참고 링크1](https://medium.com/@greg.shiny82/%ED%8A%B8%EB%9E%9C%EC%9E%AD%EC%85%94%EB%84%90-%EC%95%84%EC%9B%83%EB%B0%95%EC%8A%A4-%ED%8C%A8%ED%84%B4%EC%9D%98-%EC%8B%A4%EC%A0%9C-%EA%B5%AC%ED%98%84-%EC%82%AC%EB%A1%80-29cm-0f822fc23edb)
+* [참고 링크2](https://curiousjinan.tistory.com/entry/transactional-outbox-pattern-microservices-kafka)
+* [참고 링크3 - inbox](https://curiousjinan.tistory.com/entry/kafka-consumer-inbox-pattern)
+
+
+### 5. event-sourcing
+* [참고 링크1](https://velog.io/@everyhannn/CQRS-Event-Sourcing)
+* [참고 링크2](https://curiousjinan.tistory.com/entry/cqrs-explained-event-sourcing?category=1503500)
