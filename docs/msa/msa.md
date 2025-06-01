@@ -74,6 +74,65 @@
 * [참고 링크3 - inbox](https://curiousjinan.tistory.com/entry/kafka-consumer-inbox-pattern)
 
 
+* 'at-least-once + 멱등성' 조합을 통해 메시지 유실 없이 데이터 처리
+* 중복은 허용하는 대신 중복에 의한 부작용을 방지하는 방법들을 사용
+  * ex. unique key, upsert 방식, inbox 등
+
+#### 4.1. 이벤트 순서 역전에 의한 데이터 정합성 문제
+* Outbox 패턴 사용 시 발생할 수 있는 이벤트 순서 역전에 의한 데이터 정합성 문제를 어떻게 해결할 수 있을까?
+* 가장 간단한 방법은 timestamp 또는 version을 기반으로 오래된 이벤트인 경우 처리를 무시하도록 설계하는 것
+* ReadModel의 version으로 오래된 이벤트를 판단하고 무시하도록 하려면 이벤트 처리가 멱등(idempotent)하게 이루어 지도록 설계가 되어야 함
+  * 예를들어, Member의 `접속 상태 변경`, `회원 정보 변경`과 같이 변경에 대한 이벤트를 나누는게 아니라,
+  * Member 변경 이벤트(PUT방식) 하나로, Member를 변경하는 이벤트를 멱등하게 설계하는 것임
+
+#### 4.2. @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT) 사용시 주의점
+* **AFTER_COMMIT 리스너에서 데이터 업데이트 처리시 DB에 반영이 되지 않는 문제가 발생**
+* [참고한 링크](https://curiousjinan.tistory.com/entry/fixing-spring-transactionaleventlistener-after-commit-update-issue)
+* 문제 발생 시나리오
+  * ApplicationEventPublisher으로 이벤트 호출시 `@TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)`에 의한 리스너가 호출되는데
+  * BEFORE_COMMIT 시점은 커밋전 단계로 아직 DB와의 Transaction이 연결되어 있으며 종료시 커밋이 이루어 진다.
+  * BEFORE_COMMIT 리스너 처리 이후, `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`에 의한 리스너가 처리되는데
+  * AFTER_COMMIT 시점에는 커밋이 끝나고, DB에 대한 Transaction 또한 종료된 상태이지만 Spring에 의한 Transaction 컨텍스트는 유지되어 있는 상태이다.
+  * 따라서, AFTER_COMMIT 리스너에서 데이터를 저장해도 **DB에 반영이 되지 않는 문제**가 발생한다.
+* 왜 업데이트되지 않는 문제가 발생할까?
+  * 아래의 AFTER_COMMIT 리스너의 코드를 예시로 들어보자.
+  * AFTER_COMMIT 단계에서는 DB Transaction은 끊어진 상태이지만 Spring에 의한 Transacion은 유지되고 있는 상태이다.
+  * Spring에 의한 Transacion은 유지되고 있기 때문에, BEFORE_COMMIT 단계에서 생성된 outbox 데이터는 영속성 컨텍스트에 관리되고 있는 상태이다.
+  * 그래서 DB Transaction이 끊겼지만 outbox 데이터 조회가 가능한 것이고 save(outbox) 코드까지 이어질 수 있다.
+  * 하지만 save 요청시 DB Transaction이 끊어진 상태이기 때문에 DB에 커밋이 되지 않는 문제가 발생하는 것 (에러 메시지가 나오지 않아 찾기 어려움...)
+  ```java
+  // DB Transaction은 끊어진 상태이지만 Spring에 의한 Transacion은 유지되고 있는 상태
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void handleOutboxEventAfterCommit(OutboxEvent event) {
+      String eventId = event.getEventId();
+      // BEFORE_COMMIT단계에서 생성된 outbox는 영속성 컨텍스트에 의해 관리되고 있기 때문에 조회가 가능
+      Outbox outbox = outboxRepository.findByEventId(eventId)
+              .orElseThrow(() -> new EntityNotFoundException("eventId에 대한 OutBox 데이터가 존재하지 않습니다."));
+
+      try {
+          kafkaEventPublisher.sendEvent(
+                  outbox.getAggregateType(),   // topic
+                  outbox.getEventId(),         // eventId (header & Outbox Unique key)
+                  outbox.getEventType(),       // eventType (header)
+                  outbox.getAggregateId(),     // record key
+                  outbox.getPayload()          // record message
+          );
+          outbox.markSuccess();
+      } catch (Exception e) {
+          outbox.markFailed();
+      }
+      outboxRepository.save(outbox); // DB Transaction이 끊긴 상태이기 때문에 커밋이 안됨
+  }
+  ```
+* 어떻게 해결할까?
+  * AFTER_COMMIT 리스너에 `@Transactional(propagation = Propagation.REQUIRES_NEW)` 어노테이션을 붙여주면 된다.
+  * 기존에 실행되던 트랜잭션(스프링 트랜잭션 컨텍스트)과 완전히 분리된 새로운 트랜잭션을 시작해야 하기 때문
+  * 이때 REQUIRES_NEW는
+    * 새로운 스프링 트랜잭션 컨텍스트 생성
+    * 새로운 DB 커넥션 획득
+    * 새로운 DB 트랜잭션 시작
+
+
 ### 5. event-sourcing
 * [참고 링크1](https://velog.io/@everyhannn/CQRS-Event-Sourcing)
 * [참고 링크2](https://curiousjinan.tistory.com/entry/cqrs-explained-event-sourcing?category=1503500)

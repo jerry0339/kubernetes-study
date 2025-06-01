@@ -1125,3 +1125,29 @@ spring:
   * 따라서 같은 키를 가진 상태 변경 이벤트는 순서 보장이 가능하며, 최종적으로 데이터 일관성 유지가 가능하다.
 
 <br>
+
+### 11.6. Kafka Connector 언제 사용할까?
+* Kafka Connect는 Kafka 메시지를 RDB, NoSQL, Elasticsearch 등 다양한 외부 시스템에 자동으로 연동시켜주는 도구
+* Kafka Connect의 Sink Connector(ex. JDBC Sink Connector) 를 설정하면 메시지를 받아서 자동으로 DB에 insert/update/delete 할 수 있음
+* 아래와 같은 상황에서는 Kafka Connector를 사용
+  * 이벤트 메시지를 그대로 DB 테이블에 싱크만 시키면 되는 경우
+  * 단순 upsert만 필요한 경우
+  * 데이터 파이프라인 자동화가 목적일 때
+  * Read-Only 목적의 Read Model용 테이블만 유지할 때 (즉, 메시지의 payload를 그대로 사용하는 경우)
+* 아래와 같은 상황에서는 Kafka Streams
+  * 이벤트에 따라 다양한 조건 분기 로직이 존재할 때 (updateStatus, delete 등)
+  * payload의 검증 로직이 필요할때
+  * 복잡한 트랜잭션 묶음 처리 필요시
+  * 필터링이 필요하거나 데이터의 상태 변경이 필요한 경우
+
+### 11.7. eventually consistency
+> kafka를 이용하여 eventually consistency 보장하기
+
+* `eventually consistency` 란?
+  * 시스템이 일시적으로 불일치한 상태일 수는 있지만, 모든 데이터 복제본이 최종적으로 일관된 상태에 도달함을 보장하는 모델이다.
+* eventually consistency 모델을 통해 어떤 것들을 보장할 수 있을까?
+  * 데이터 정합성
+  * 데이터 일관성 - Read Model이 원본 상태와 일치
+  * 신뢰성 있는 전달 - at-least-once 또는 exactly-once
+  * 처리 보장
+  * 멱등성 처리 - 

@@ -50,9 +50,10 @@
   kubectl run mycurlpod --image=curlimages/curl -i --tty -- sh
 
   # 해당 pod에서 테스트 하기
-  $curl [테스트할 주소]
+  curl {테스트할 주소}
+  while true; do curl {테스트할 주소}; sleep 2; echo '';  done
 
-  # 이후 해당 pod 들어가기
+  # exit 이후 해당 pod 다시 들어가기
   kubectl exec -it mycurlpod -- sh
 
   # pod 삭제하기
