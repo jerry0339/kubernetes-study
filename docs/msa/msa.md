@@ -81,9 +81,10 @@
 #### 4.1. 이벤트 순서 역전에 의한 데이터 정합성 문제
 * Outbox 패턴 사용 시 발생할 수 있는 이벤트 순서 역전에 의한 데이터 정합성 문제를 어떻게 해결할 수 있을까?
 * 가장 간단한 방법은 timestamp 또는 version을 기반으로 오래된 이벤트인 경우 처리를 무시하도록 설계하는 것
-* ReadModel의 version으로 오래된 이벤트를 판단하고 무시하도록 하려면 이벤트 처리가 멱등(idempotent)하게 이루어 지도록 설계가 되어야 함
-  * 예를들어, Member의 `접속 상태 변경`, `회원 정보 변경`과 같이 변경에 대한 이벤트를 나누는게 아니라,
-  * Member 변경 이벤트(PUT방식) 하나로, Member를 변경하는 이벤트를 멱등하게 설계하는 것임
+  * 멱등한 업데이트 이벤트 하나로 ReadModel을 업데이트 - ReadModel에 version 데이터 하나로 관리할 수 있음
+  * 업데이트 이벤트 Type별로 version 데이터 관리
+  * 삭제 이벤트와 업데이트 이벤트가 순서 역전이 되는 경우는 soft-delete 처리로 업데이트 이벤트에 의해 데이터가 재생성 되는 것을 방지할 수 있음
+    * ex. 삭제 이벤트 이후 업데이트 이벤트가 처리되는 경우, upsert로직에 의해 해당 readModel 데이터가 재생성 될 수 있음
 
 #### 4.2. @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT) 사용시 주의점
 * **AFTER_COMMIT 리스너에서 데이터 업데이트 처리시 DB에 반영이 되지 않는 문제가 발생**
