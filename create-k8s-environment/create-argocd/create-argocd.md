@@ -85,10 +85,11 @@ kubectl create namespace argocd
     ```
 * ID는 admin으로, 위에서 조회한 비밀번호를 입력하고 로그인
 * ![](2025-04-03-00-38-29.png)
+* ![](2025-06-14-08-20-44.png)
 
 <br><br>
 
-## 6. ArgoCD Image Updater 추가 설치
+## 6. ArgoCD Image Updater 설치
 * 컨테이너 이미지 변경 감지 및 자동 배포를 하기 위해 ArgoCD Image Updater를 설치하고 적용하는 과정
 
 ### 6.1. ArgoCD Image Updater 설치
@@ -169,7 +170,7 @@ kubectl get pods -n argocd
 
 <br><br>
 
-## 7. Argo Rollouts 추가 설치
+## 7. Argo Rollouts 설치
 * helm repo 추가
   ```sh
   helm repo add argo https://argoproj.github.io/argo-helm
@@ -209,4 +210,4 @@ kubectl get pods -n argocd
   kubectl get pods -n argo-rollouts
   kubectl get svc -n argo-rollouts
   ```
-  
+* ![](2025-06-14-08-20-07.png)

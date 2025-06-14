@@ -11,7 +11,7 @@
   * 프로덕션 환경에서는 CA 인증서를 신뢰하는 과정을 수행해야 겠지만 현재는 테스트 과정이므로 CA 인증서를 확인하지 않도록 Deployment의 파라미터를 변경
   ```sh
   # 설치
-  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.6.3/components.yaml
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.0/components.yaml
   ```
 
 <br><br>

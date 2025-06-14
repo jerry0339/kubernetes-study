@@ -24,11 +24,8 @@
 * 해당 문서에서 클러스터 구축 하는데에 네트워크 솔루션으로 `Calico`를 사용함
   * Flannel 사용시에는 8285, 8472 포트 오픈해 주어야 함
 * 외부 접근을 위한 포트
-  * 6443
-  * 30000:32767
-* 외부에서 접근 가능한 포트는 IP 화이트리스트를 설정 하는 것이 좋음
-  * 6443/tcp - API 서버
-  * 30000:32767/tcp - NodePort 서비스
+  * `master`: 6443
+  * `worker`: 30000-32767, 26443
 * **클라우드 플랫폼(GCP, AWS 등)을 사용하는 경우**
   * 해당 플랫폼의 방화벽 규칙(Security Group, VPC 방화벽 등)을 통해 포트를 열어야 함
   * GCP의 경우 VPC 네트워크 - 방화벽 - 방화벽 규칙 만들기에서 규칙 생성하고 vm의 네트워크 태그에 해당 방화벽 규칙의 태그 달아주면 됨
@@ -104,7 +101,7 @@ sudo sysctl --system
   sudo apt install -y containerd
   ```
 
-* 아래의 4항목(containerd 설정 파일 생성 및 수정)은 이유를 모르겠지만, `unbuntu 24.04`부터 안해도 되는듯 함
+* containerd 컨테이너 런타임이 systemd를 CGroup 드라이버로 사용하도록 설정 - kubelet과의 호환성을 맞추기 위한 필수 설정
   ```
   sudo mkdir -p /etc/containerd
   sudo containerd config default | sudo tee /etc/containerd/config.toml
@@ -130,7 +127,7 @@ sudo systemctl status containerd.service
 ## 6. Kubernetes 설치
 * 설치하는 시점에 따라서 Kubernetes에서 지원하지 않는 버전의 package repository를 참조하는 경우 패키지 업데이트시 에러가 생길 수 있다.
   * 최신 버전의 k8s를 설치해야 함
-* `v1.30.7-1.1` 버전으로 설치
+* `v1.30.13-1.1` 버전으로 설치
 ```sh
 # K8s 설치를 위한 패키지 설정
 sudo apt-get update
@@ -150,8 +147,8 @@ sudo apt-get update
 # 설치 가능한 버전 확인
 sudo apt-cache madison kubeadm
 
-# kubeadm, kubelet, kubectl 설치 (1.30.7-1.1 버전)
-sudo apt-get install -y kubelet=1.30.7-1.1 kubeadm=1.30.7-1.1 kubectl=1.30.7-1.1
+# kubeadm, kubelet, kubectl 설치 (1.30.13-1.1 버전)
+sudo apt-get install -y kubelet=1.30.13-1.1 kubeadm=1.30.13-1.1 kubectl=1.30.13-1.1
 ```
 * ![](2024-11-26-19-22-37.png)
 
@@ -204,7 +201,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 * `calico`로 설치
 ```sh
 # calico 설치
-kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.3/manifests/calico.yaml
 
 # calico node와 controller가 Running중인지 확인
 kubectl get pods -n kube-system

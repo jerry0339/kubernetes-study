@@ -69,7 +69,7 @@ helm repo update
           value: "-Xmx768m -Xms768m"
     configurationOverrides:
       - "process.roles=broker,controller" # 단일 노드가 브로커(데이터 처리)와 컨트롤러(메타데이터 관리) 역할을 동시에 수행
-      - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름이 k8s-worker-01~03일 경우 StatefulSet 인덱스(0,1,2) 자동 할당
+      - "node.id=${HOSTNAME##*-}" # 각 노드별 고유 ID 설정 - 노드 이름과 관계 없이, StatefulSet 인덱스(0,1,2)가 자동 할당
       - "controller.quorum.voters=0@kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9093,1@kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9093,2@kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9093" # FQDN 직접 명시
       - "advertised.listeners=CLIENT://kafka-controller-${HOSTNAME##*-}.kafka-controller-headless.kafka.svc.cluster.local:9092"
       - "listeners=CLIENT://:9092,CONTROLLER://:9093"
@@ -101,11 +101,19 @@ helm repo update
     --namespace kafka \
     --create-namespace \
     -f kafka-values.yaml \
-    --set listeners.client.protocol=PLAINTEXT # SASL_PLAINTEXT에서 PLAINTEXT로 바꾸어서 적용
+    --set listeners.client.protocol=PLAINTEXT \
     --set 'controller.extraEnvVars[0].name=KAFKA_HEAP_OPTS' \
     --set 'controller.extraEnvVars[0].value=-Xmx768m -Xms768m' \
     --set 'broker.extraEnvVars[0].name=KAFKA_HEAP_OPTS' \
     --set 'broker.extraEnvVars[0].value=-Xmx768m -Xms768m'
+    --set 'controller.resources.requests.cpu=300m' \
+    --set 'controller.resources.limits.cpu=500m' \
+    --set 'broker.resources.requests.cpu=300m' \
+    --set 'broker.resources.limits.cpu=500m' \
+    --set 'controller.resources.requests.memory=512Mi' \
+    --set 'controller.resources.limits.memory=768Mi' \
+    --set 'broker.resources.requests.memory=512Mi' \
+    --set 'broker.resources.limits.memory=768Mi'
   ```
 * kafka 파드 점검하기
   ```sh
