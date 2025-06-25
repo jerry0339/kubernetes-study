@@ -84,18 +84,24 @@
 
 <br><br>
 
-## 4. Gateway 및 VirtualService 설정 추가
+## 4. Istio 리소스
+* `Gateway`: 클러스터 외부로부터의 트래픽을 수신하는 진입점
+* `VirtualService`: 트래픽 라우팅 규칙 정의
+* `DestinationRule`: VirtualService가 트래픽을 전달할 대상 서비스의 세부 설정 정의
+* `RequestAuthentication`: JWT 검증 정의
+* `AuthorizationPolicy`: 검증된 JWT를 바탕으로 접근 허용/차단
 
 ### 4.1. Gateway 설정
+* Gateway: Istio Ingress Gateway에 어떤 포트(HTTP, HTTPS 등)를 열고 어떤 호스트명에 대해 수신할지를 정의
 * credentialName은 TLS 인증서를 담은 Kubernetes TLS Secret의 이름
-* istio-system 네임스페이스에 존재해야 함
-* 테스트용 인증서 생성(tls.crt, tls.key)
-  ```sh
-  openssl req -x509 -nodes -days 365 \
-    -newkey rsa:2048 \
-    -keyout tls.key \
-    -out tls.crt \
-    -subj "/CN=flowchat.shop/O=Flowchat"
+  * istio-system 네임스페이스에 존재해야 함
+  * 테스트용 인증서 생성(tls.crt, tls.key)
+    ```sh
+    openssl req -x509 -nodes -days 365 \
+      -newkey rsa:2048 \
+      -keyout tls.key \
+      -out tls.crt \
+      -subj "/CN=flowchat.shop/O=Flowchat"
 
   # gateway에 적용할 secret 생성
   kubectl create -n istio-system secret tls flowchat-cert --key tls.key --cert tls.crt
@@ -129,6 +135,7 @@
   ```
 
 ### 4.2. VirtualService 설정
+* VirtualService: URI, 헤더, 쿠키 등의 조건에 따라 어떤 서비스로 트래픽을 보낼지 지정
 * 예시 설정 정보의 첫번째 match 설정에서, `/member`, `/v2/member`와 같은 경로들은 모두 prefix 유지 상태로 라우팅됨
 * 예시 설정 정보의 두번째 match 설정에서, `/test` 경로는 `/` 경로로 rewrite 되어 요청되도록 설정
 * 예시 설정 정보의 마지막 match 설정에서, **라우팅 우선순위는 위에서 아래로 평가**되므로 catch-all 룰(`/`)은 항상 마지막에 추가
@@ -191,3 +198,32 @@
           port:
             number: 3000
   ```
+
+### 4.3. DestinationRule 설정
+* DestinationRule: 서브셋(subset)을 정의하여 Canary, Stable 등 버전별 분기 및 연결 정책등을 설정
+* 예시 설정 정보
+  ```yaml
+  apiVersion: networking.istio.io/v1beta1
+  kind: DestinationRule
+  metadata:
+    name: member-prod-destinationrule
+    namespace: chatflow
+  spec:
+    host: member-prod.chatflow.svc.cluster.local
+    subsets:
+      - labels:
+          app.kubernetes.io/instance: member-prod
+          app.kubernetes.io/name: member
+        name: stable
+      - labels:
+          app.kubernetes.io/instance: member-prod
+          app.kubernetes.io/name: member
+        name: canary
+
+  ```
+
+### 4.4. RequestAuthentication 설정
+* 예시 설정 정보
+```yaml
+
+```
