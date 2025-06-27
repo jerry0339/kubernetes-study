@@ -4,7 +4,8 @@
 * 2.ArgoCD App 배포
 * 3.ArgoCD의 Live Manifest vs Desired Manifest 비교
 * 4.ArgoCD를 사용하면 좋은점?
-* 5.ArgoCD Image Updater 이용한 이미지 자동 배포
+* 5.ArgoCD Image Updater이용한 이미지 자동 배포 설정
+* 6.Argo Rollouts를 이용한 배포 - Canary
 
 <br>
 
@@ -116,31 +117,46 @@
   * 이미지 빌드(CI)만 다른 도구로 실행하면, 배포에 관련된 내용들은 ArgoCD를 통해 쉽게 자동화 가능
   * ![](2025-04-04-03-23-07.png)
 
-<br>
+<br><br>
 
-### 4.2. ArgoCD Image Updater이용한 이미지 자동 배포 설정 방법
+## 5. ArgoCD Image Updater이용한 이미지 자동 배포 설정
+* 설치 방법은 [해당 문서 참고](/create-k8s-environment/create-argocd/create-argocd.md#6-argocd-image-updater-설치)
+
+### 5.1. ArgoCD Image Updater?
+* Argo CD로 관리되는 리소스의 컨테이너 이미지를 자동으로 최신 버전으로 업데이트하는 도구
 * 배포할 내용의 설정 파일들은 helm을 사용하여 작성해야 함 (또는 kustomize)
   * 배포시 `helm upgrade ... --set` 명령어를 내부적으로 사용하기 때문
 * ArgoCD 설치와 별개로 ArgoCD Image Updater를 따로 설치하고 registry관련 설정도 추가해 주어야 함
-  * [해당 문서 참고](/create-k8s-environment/create-argocd/create-argocd.md)
 * ArgoCD App의 Sync Policy를 Auto로 설정하고 App에 Annotaion들을 추가해 주면,
   * ArgoCD Image Updater가 지속적으로 이미지의 새 버전을 확인하여 App에 해당하는 리소스의 이미지를 배포 (deployment, replicaSet, pod...)
   * ArgoCD Image Updater가 확인하는 이미지들의 조건은 argocd-image-updater-config 컨피그맵의 registry설정과 App에 등록한 Annotaion을 따름
   * ![](2025-04-06-00-31-01.png)
-  * ![](2025-04-06-00-31-42.png)
-* Annotation 예시
+  * ![](2025-06-28-00-11-12.png)
+
+<br>
+
+### 5.2. Annotation 예시
   * `argocd-image-updater.argoproj.io/image-list`: 업데이트 대상 이미지를 지정함, `{alias}={image_path}` 형식임
-    * `argocd-image-updater.argoproj.io/image-list = jerry0339-api-tester=jerry0339/api-tester` 의 annotation인 경우
-    * jerry0339-api-tester: 이미지의 별칭(alias)으로 이후의 annotation에서 참조
-    * jerry0339/api-tester: 실제 이미지 경로 (cf. registry 설정으로 credentials정보와 docker.io/가 생략되어 있는 것)
-  * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags`: 특정 태그 패턴에 해당하는 이미지만 업데이트 대상으로 지정
-    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.allow-tags = regexp:^1.0.0-[0-9]{6}.[0-9]{6}$` 의 경우
-    * jerry0339-api-tester는 앞서 설정한 alias에 해당
-    * regexp:^1.0.0-[0-9]{6}.[0-9]{6}$: 해당 regex 패턴에 해당하는 태그를 가진 이미지만 업데이트 대상임
-    * ex. 1.0.0-20250406.123456
-  * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy`: 이미지 업데이트 전략을 정의
-    * `argocd-image-updater.argoproj.io/jerry0339-api-tester.update-strategy = alphabetical` 의 경우
-    * jerry0339-api-tester는 앞서 설정한 alias에 해당
+    * `argocd-image-updater.argoproj.io/image-list = chatflow-member=chatflow/member` 의 annotation인 경우
+    * chatflow-member: 이미지의 별칭(alias)으로 이후의 annotation에서 참조
+    * chatflow/member: 실제 이미지 경로 (cf. DockerHub 기준, registry 설정으로 credentials정보와 docker.io/가 생략되어 있음 참고)
+  * `argocd-image-updater.argoproj.io/<alias>.allow-tags`: 특정 태그 패턴에 해당하는 이미지만 업데이트 대상으로 지정
+    * `argocd-image-updater.argoproj.io/chatflow-member.allow-tags = regexp:^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{6}\.[0-9]{6}$` 의 경우
+    * chatflow-member는 앞서 설정한 alias에 해당
+    * regexp:^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{6}\.[0-9]{6}$: regex 패턴에 해당하는 태그를 가진 이미지만 업데이트 대상임
+    * ex. 1.0.8-250406.123456
+  * `argocd-image-updater.argoproj.io/<alias>.helm.image-name`: Helm Chart의 values.yaml에서 이미지 레포지토리 경로의 key 경로를 지정
+    * `argocd-image-updater.argoproj.io/chatflow-member.helm.image-name = common.rollout.image.repository`의 경우
+    * chatflow-member는 앞서 설정한 alias에 해당
+    * values.yaml파일의 common.rollout.image.repository 설정을 chatflow/member로 업데이트 함
+  * `argocd-image-updater.argoproj.io/<alias>.helm.image-tag`: Helm Chart의 values.yaml에서 이미지 태그의 key 경로를 지정
+    * `argocd-image-updater.argoproj.io/chatflow-member.helm.image-tag = common.rollout.image.tag`의 경우
+    * chatflow-member는 앞서 설정한 alias에 해당
+    * values.yaml파일의 common.rollout.image.tag 설정을 새로 배포된 이미지 태그로 업데이트함
+    * ex. 1.0.3-240428.104512
+  * `argocd-image-updater.argoproj.io/<alias>.update-strategy`: 이미지 업데이트 전략을 정의
+    * `argocd-image-updater.argoproj.io/chatflow-member.update-strategy = alphabetical` 의 경우
+    * chatflow-member는 앞서 설정한 alias에 해당
     * 이미지 업데이트 전략
       1. `alphabetical` (`name`에서 변경됨)
          * 알파벳순으로 정렬된 목록의 마지막 태그로 업데이트
@@ -159,9 +175,17 @@
 
 <br>
 
+### 5.3. 점검
 * ArgoCD App의 Sync Policy를 Auto로 설정하고 App에 Annotaion들을 잘 추가해 주었다면,
 * ArgoCD Image Updater가 주기적으로 이미지의 새 버전을 확인하고 자동으로 배포해 줌
 * ArgoCD Image Updater Pod에서 로그로 해당 내용을 확인해 볼 수 있음
   * ![](2025-04-06-02-43-11.png)
 
-### 4.3. ArgoCD Rollouts를 이용한 배포 - Blue/Green, Canary
+<br><br>
+
+## 6. Argo Rollouts를 이용한 배포 - Canary
+* 설치 방법은 [해당 문서 참고](/create-k8s-environment/create-argocd/create-argocd.md#7-argo-rollouts-설치)
+* Argo Rollouts란?
+  * Kubernetes 환경에서 Blue/Green와 Canary 같은 배포 전략을 구현하고, 자동 롤백 및 수동 판단 기능을 제공하는 k8s 컨트롤러 및 CRD
+
+### 6.1. Rollout CRD 설정
