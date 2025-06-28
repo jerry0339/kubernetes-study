@@ -192,7 +192,7 @@
 * Deployment 설정 대신 Rollout CRD를 사용
 * Deployment의 모든 설정을 사용 가능, `strategy` 설정만 추가하면 됨
 * 이외에 DestinationRule 설정과 VirtualService 설정도 필요함
-  * [해당 문서 참고](/create-k8s-environment/docs/istio/istio.md)
+  * [해당 문서 참고](/docs/istio/istio.md)
 * Rollout 설정 예시
   ```yaml
   apiVersion: argoproj.io/v1alpha1
@@ -236,4 +236,10 @@
                 - http.0 # VirtualService CRD에 설정한 라우팅 설정의 이름
   # .....
   ```
-* 
+
+### 6.2. 배포 방법 steps
+* rollout 설정에서 설정한 steps에 의해 아래와 같이 pod 개수 초기화 개수, 트래픽량, pause 시간등을 조절 가능함
+* promote 버튼으로 다음 step으로 진행, promoteFull로 모두 스킵 가능
+* 기록된 Revisions으로 rollback 또한 가능
+  * 대신 argo image updater annotation 설정 임시로 변경해 주어야 함
+* ![](2025-06-29-00-06-18.png)
