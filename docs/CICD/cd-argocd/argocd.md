@@ -189,3 +189,51 @@
   * Kubernetes 환경에서 Blue/Green와 Canary 같은 배포 전략을 구현하고, 자동 롤백 및 수동 판단 기능을 제공하는 k8s 컨트롤러 및 CRD
 
 ### 6.1. Rollout CRD 설정
+* Deployment 설정 대신 Rollout CRD를 사용
+* Deployment의 모든 설정을 사용 가능, `strategy` 설정만 추가하면 됨
+* 이외에 DestinationRule 설정과 VirtualService 설정도 필요함
+  * [해당 문서 참고](/create-k8s-environment/docs/istio/istio.md)
+* Rollout 설정 예시
+  ```yaml
+  apiVersion: argoproj.io/v1alpha1
+  kind: Rollout # Rollout CRD 사용
+  metadata:
+    name: member-prod
+    namespace: chatflow
+    labels:
+      app.kubernetes.io/component: backend
+      app.kubernetes.io/instance: member-prod
+      app.kubernetes.io/name: member
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 3
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: member-prod
+        app.kubernetes.io/name: member
+    strategy: # 배포 전략 설정 가능
+      canary: # Canary 배포 전략 사용
+        steps: # step 설정으로 canary 배포 단계 설정 가능
+          - setCanaryScale:
+              replicas: 1
+          - pause: {}
+          - setWeight: 10
+          - pause:
+              duration: 60s
+          - setWeight: 30
+          - pause:
+              duration: 120s
+          - setWeight: 100
+        trafficRouting: # 라우팅 설정
+          istio:
+            destinationRule: # App별로 destinationRule CRD를 따로 생성해 주어야 함
+              canarySubsetName: canary
+              name: member-prod-destinationrule
+              stableSubsetName: stable
+            virtualService:
+              name: chatflow-routing
+              routes:
+                - http.0 # VirtualService CRD에 설정한 라우팅 설정의 이름
+  # .....
+  ```
+* 
