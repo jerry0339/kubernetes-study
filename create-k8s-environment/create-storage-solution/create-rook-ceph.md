@@ -19,13 +19,8 @@
 * GCP의 vm으로 k8s cluster를 구축한 상황
 * 여분의 디스크가 필요하므로 디스크를 추가
 * 인스턴스 수정에서 디스크 추가가 가능함
-* 모든 노드에 빈 디스크를 추가 (ceph-disk-00 ~ 03, 용량 10GB)
+* 모든 노드에 빈 디스크를 추가
   * ![](2025-03-25-03-12-59.png)
-  * 또는 명령어로 특정 디스크 데이터 초기화
-    ```sh
-    sudo wipefs -a /dev/sdb # 초기화할 디스크 경로 입력
-    sudo sgdisk --zap-all /dev/sdb # 초기화할 디스크 경로 입력
-    ```
 * 추가로 인스턴스 삭제시 디스크도 삭제되도록 설정
   * ![](2025-03-25-03-21-33.png)
 * `lsblk`과 `sudo fdisk -l` 명령어로 확인한 결과 빈 디스크인 sdb가 생성된 것을 확인 가능함
@@ -215,7 +210,8 @@
 <br><br>
 
 ## 8. PVC 생성
-* **PV가 필요한 Pod가 있을때** 해당하는 namespace에 pvc를 생성해 주면 됨
+* **PV가 필요한 Pod가 있을때** 해당하는 namespace에 pvc를 생성
+  * 또는 StorageClass를 설정하기만 하면 컴포넌트에서 자동 생성해 주기도 함
 * 아래의 yaml내용에 대한 pvc 생성
   ```yaml
   apiVersion: v1
@@ -356,22 +352,4 @@
 
   # 권한 추가 및 실행
   chmod +x delete-ceph.sh && ./delete-ceph.sh
-  ```
-* 디스크 설정 초기화
-  ```sh
-  cat > initdisk.sh <<'EOF'
-  DISK="/dev/sdb"
-  sudo fuser -k $DISK || true
-  sudo sgdisk --zap-all $DISK
-  sudo dd if=/dev/zero of=$DISK bs=1M count=100 oflag=direct,dsync
-  sudo dd if=/dev/zero of=$DISK bs=1M seek=$((`sudo blockdev --getsz $DISK` / 2048 - 100)) count=100 oflag=direct,dsync
-  sudo dd if=/dev/zero of=$DISK bs=1M seek=100 count=100 oflag=direct,dsync
-  sudo wipefs -a $DISK
-  sudo dmsetup remove_all || true
-  sudo rm -rf /var/lib/rook/* /var/lib/ceph/* /etc/ceph/*
-  sudo partprobe $DISK
-  sudo udevadm trigger
-  EOF
-
-  chmod +x initdisk.sh && ./initdisk.sh
   ```
