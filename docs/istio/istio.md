@@ -147,13 +147,16 @@
 <br>
 
 ### 3. DestinationRule 설정
-* DestinationRule: 서브셋(subset)을 정의하여 Canary, Stable 등 버전별 분기 및 연결 정책등을 설정
+* DestinationRule
+  * Canary/Blue-Green 배포시 stable, canary 서브셋 정의
+  * 서비스 간 mTLS 제어?
+  * Circuit Breaking 설정
 * 예시 설정 정보
   ```yaml
   apiVersion: networking.istio.io/v1beta1
   kind: DestinationRule
   metadata:
-    name: member-prod-destinationrule
+    name: member-destinationrule
     namespace: chatflow
   spec:
     host: member-prod.chatflow.svc.cluster.local
@@ -172,21 +175,24 @@
 <br>
 
 ### 4. RequestAuthentication 설정
-* HMAC 방식(HS256)으로 설정시 RequestAuthentication 생성 방법에 해당
-  * cf. RS256 + JWKS URL 인증 방식 사용시 jwks대신 jwksUri 속성을 사용
+* HMAC 방식(HS512)으로 설정시 RequestAuthentication 생성 방법에 해당
+  * cf. RS512 + JWKS URL 인증 방식 사용시 jwks대신 jwksUri 속성을 사용
     ```yaml
     # 예시
     jwtRules:
       - issuer: "https://auth.example.com"
         jwksUri: "https://auth.example.com/jwks.json"
     ```
-* key값은 base64로 인코딩한 값을 jwks 설정에 기입
+* secret key값은 base64로 인코딩한 값을 jwks의 "k" 설정에 기입
+* jwks의 key가 1개 이상인 경우, kid를 포함해야 함
+  * kid는 secret key의 id임
+* `forwardOriginalToken: true` 설정 - JWT 검증 후에 헤더에서 token 그대로 전달
 * 예시 설정 정보
   ```yaml
   apiVersion: security.istio.io/v1beta1
   kind: RequestAuthentication
   metadata:
-    name: member-prod-authentication
+    name: member-authentication
     namespace: chatflow
   spec:
     selector:
@@ -194,55 +200,99 @@
         app.kubernetes.io/instance: member-prod
         app.kubernetes.io/name: member
     jwtRules:
-      - issuer: "jerry0339" # JWT의 iss 필드 값
+      - forwardOriginalToken: true # false 설정시, Istio가 JWT 검증 후에 헤더에서 token 제거함
+        issuer: "jerry0339" # JWT의 iss 필드 값
         # audiences:
         #  - "team"        # JWT의 aud 필드 값
+        # jwks의 keys 값이 1개 이상이면 kid(secret key의 id) 반드시 포함
         jwks: |
           {
             "keys": [
               {
                 "kty": "oct",
+                "kid": "v1",
                 "k": "dXNlcl90b2tlbl9mb3Jfc2lnbmF0dXJlX211c3RfYmVfYXRfbGVhc3RfMjU2X2JpdHNfaW5fSE1BQ19zaWduYXR1cmVfYWxnb3JpdGhtcw==",
-                "alg": "HS256"
+                "alg": "HS512"
               }
             ]
           }
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: member-prod
+        app.kubernetes.io/name: member
   ```
 
 <br>
 
 ### 5. AuthorizationPolicy 설정
 * `action: DENY` 설정도 있는데, 설정하려면 아래와 같은 ALLOW 설정과 따로 작성해야 함
-* 예시 설정 정보
+* AuthorizationPolicy 리소스 추가시, matchLabels에 해당하는 파드에 HTTP 요청시 인증 token을 헤더에 포함해야 접근 가능
+  * 헤더가 필요없는 경로 설정 가능한데 따로 설정해야 함 - member-authorization-public 참고
+* 예시 설정 정보1 (member-authorization-secured)
+  ```yaml
+  apiVersion: security.istio.io/v1beta1
+  kind: AuthorizationPolicy
+  metadata:
+    name: member-authorization-secured
+    namespace: chatflow
+  spec:
+    action: ALLOW
+    rules:
+      - to: # ADMIN role만 허용
+          - operation:
+              paths:
+                - /admins/*
+        when:
+          - key: request.auth.claims[role]
+            values:
+              - ADMIN
+      - to: # MEMBER role만 허용
+          - operation:
+              paths:
+                - /members/*
+                - /friendships/*
+        when:
+          - key: request.auth.claims[role]
+            values:
+              - MEMBER
+      - from: # 그 외의 모든 경로는 모두(MEMBER, ADMIN) 접근 가능
+          - source:
+              requestPrincipals:
+                - '*'
+        when:
+          - key: request.auth.claims[role]
+            values:
+              - MEMBER
+              - ADMIN
+    selector:
+      matchLabels:
+        app.kubernetes.io/instance: member-prod
+        app.kubernetes.io/name: member
+  ```
+
+* 예시 설정 정보2 (member-authorization-public)
 ```yaml
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: member-prod-authorization
+  name: member-authorization-public
   namespace: chatflow
 spec:
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths:
+              - /sign-up
+              - /sign-in
+              - /member/swagger
+              - /member/swagger-ui
+              - /member/swagger-ui/*
+              - /member/v3/api-docs
+              - /member/v3/api-docs/*
+      # `when:` 설정 빼서 인증 헤더 없이 접근 가능하도록 설정 가능
   selector:
     matchLabels:
       app.kubernetes.io/instance: member-prod
       app.kubernetes.io/name: member
-  action: ALLOW
-  rules:
-    - to: # ADMIN role만 허용
-        - operation:
-            paths: ["/admins/*"]
-      when:
-        - key: request.auth.claims[role] # JWT의 role 필드 값에 해당
-          values: ["ADMIN"]
-    - to: # MEMBER role만 허용
-        - operation:
-            paths: ["/members/*", "/friendships/*"]
-      when:
-        - key: request.auth.claims[role]
-          values: ["MEMBER"]
-    - from: # 그 외의 모든 경로는 모두(MEMBER, ADMIN) 접근 가능
-        - source:
-            requestPrincipals: ["*"]
-      when:
-        - key: request.auth.claims[role]
-          values: ["MEMBER", "ADMIN"]
 ```

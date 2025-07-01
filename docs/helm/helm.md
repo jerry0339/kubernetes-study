@@ -90,6 +90,26 @@
       * `.`: 해당하는 데이터 참조(Values.nodeSelector에 해당)
       * `nindent 8`: 데이터 가장 앞에 공백 8칸 생성
     * `{{- end }}`: with 블록을 종료
+  * 예시3
+    ```yaml
+    {{- range .Values.virtualService.routes }}
+    - name: {{ .name }}
+      match:
+        {{- range .match }}
+        - uri:
+            prefix: {{ . | quote }}
+        {{- end }}
+      {{- if .rewrite }}
+      rewrite:
+        uri: {{ .rewrite.uri | quote }}
+      {{- end }}
+    {{- end }}
+    ```
+    * .Values.virtualService.routes 값 기반으로 리스트 처리하는 내용
+    * `range`: 리스트 처리
+    * `quote`: 데이터를 문자열 처리함. range로 loop 처리시 아래와 같은 이유로 사용함
+      * 숫자나 boolean을 문자열로 넘겨야 할 때
+      * 데이터가 숫자로 시작하거나 특문이 포함되어 파싱 오류 가능성이 있을 때
 
 <br><br>
 
